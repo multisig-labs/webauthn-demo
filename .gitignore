@@ -1,0 +1,9 @@
+# General
+_private
+.DS_Store
+.env
+.envrc
+bin
+cache
+coverage
+coverage.json
