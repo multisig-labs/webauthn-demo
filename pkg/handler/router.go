@@ -15,6 +15,8 @@ func NewRouter(webContent fs.FS) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.Debug = true // Show more detailed errors in json response
+	e.HTTPErrorHandler = NewHTTPErrorHandler(HTTPErrorHandlerConfig{Debug: false, Logger: e.Logger})
+	e.Validator = utils.NewCustomValidator()
 	e.Use(middleware.CORS())
 	e.Use(middleware.RequestID())
 	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
@@ -28,6 +30,9 @@ func NewRouter(webContent fs.FS) *echo.Echo {
 
 	healthHandler := NewHealthHandler()
 	e.GET("/health", healthHandler.Alive)
+
+	verifierHandler := NewVerifierHandler()
+	e.POST("/verify", verifierHandler.Verify)
 
 	// Autocreate routes for any .html files in /public that do not start with "_"
 	e.Renderer = NewTemplateRenderer(webContent)
