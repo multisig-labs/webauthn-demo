@@ -9,7 +9,7 @@ import (
 	"runtime/debug"
 
 	"github.com/jxskiss/mcli"
-	"github.com/multisig-labs/webauthn-demo/pkg/http"
+	"github.com/multisig-labs/webauthn-demo/pkg/server"
 	"github.com/multisig-labs/webauthn-demo/pkg/version"
 )
 
@@ -31,7 +31,7 @@ func serveCmd() {
 	}{}
 	mcli.Parse(&args, mcli.WithErrorHandling(flag.ExitOnError))
 
-	http.StartServer(args.Host, args.Port, webContent)
+	server.StartServer(args.Host, args.Port, webContent)
 }
 
 func handlePanic() {

@@ -3,6 +3,7 @@ module github.com/multisig-labs/webauthn-demo
 go 1.20
 
 require (
+	github.com/davecgh/go-spew v1.1.1
 	github.com/jxskiss/mcli v0.8.3
 	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53
 )
