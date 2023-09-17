@@ -56,3 +56,15 @@ func NewRouter(webContent fs.FS) *echo.Echo {
 
 	return e
 }
+
+func bindAndValidate[T any](c echo.Context) (T, error) {
+	var body T
+	if err := (&echo.DefaultBinder{}).BindBody(c, &body); err != nil {
+		return body, toHttpError(err)
+	}
+
+	if err := c.Validate(body); err != nil {
+		return body, toHttpError(err)
+	}
+	return body, nil
+}

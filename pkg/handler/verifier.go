@@ -33,18 +33,13 @@ func (v VerifyBody) ToBytes() (publicKey, dataHash, signature []byte, errs error
 }
 
 func (handler *VerifierHandler) Verify(c echo.Context) error {
-	var body VerifyBody
-	if err := (&echo.DefaultBinder{}).BindBody(c, &body); err != nil {
-		return ToHttpError(err)
+	body, err := bindAndValidate[VerifyBody](c)
+	if err != nil {
+		return toHttpError(err)
 	}
-
-	if err := c.Validate(body); err != nil {
-		return ToHttpError(err)
-	}
-
 	publicKey, dataHash, signature, err := body.ToBytes()
 	if err != nil {
-		return ToHttpError(err)
+		return toHttpError(err)
 	}
 	ok := secp256r1.VerifySignature(publicKey, dataHash, signature)
 	return c.JSON(http.StatusOK, map[string]bool{"ok": ok})

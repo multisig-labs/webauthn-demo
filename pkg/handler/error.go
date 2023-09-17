@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func ToHttpError(err error) *echo.HTTPError {
+func toHttpError(err error) *echo.HTTPError {
 	switch e := err.(type) {
 	case *echo.HTTPError:
 		return &echo.HTTPError{
@@ -35,7 +35,7 @@ func NewHTTPErrorHandler(config HTTPErrorHandlerConfig) func(err error, c echo.C
 			return
 		}
 
-		herr := ToHttpError(err)
+		herr := toHttpError(err)
 
 		code := herr.Code
 		message := echo.Map{"code": code, "message": herr.Message}
