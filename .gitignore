@@ -7,3 +7,4 @@ bin
 cache
 coverage
 coverage.json
+webauthn.db
