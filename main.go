@@ -28,10 +28,11 @@ func serveCmd() {
 	args := struct {
 		Host string `cli:"--host, host" default:"0.0.0.0"`
 		Port int    `cli:"--port, port" default:"8000"`
+		Db   string `cli:"--db, database" default:"webauthn.db"`
 	}{}
 	mcli.Parse(&args, mcli.WithErrorHandling(flag.ExitOnError))
 
-	server.StartServer(args.Host, args.Port, webContent)
+	server.StartServer(args.Host, args.Port, args.Db, webContent)
 }
 
 func handlePanic() {

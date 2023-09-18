@@ -30,6 +30,7 @@ clean:
 
 # Build
 build:
+	sqlc generate
 	go build -ldflags "{{LDFLAGS}}" -o bin/webauthn main.go
 
 # Check if there is an http(s) server listening on [url]

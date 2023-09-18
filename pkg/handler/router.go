@@ -11,7 +11,8 @@ import (
 	"github.com/multisig-labs/webauthn-demo/pkg/utils"
 )
 
-func NewRouter(webContent fs.FS) *echo.Echo {
+// All routes for the web server are hooked up here
+func NewRouter(db string, webContent fs.FS) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.Debug = true // Show more detailed errors in json response
@@ -30,6 +31,9 @@ func NewRouter(webContent fs.FS) *echo.Echo {
 
 	healthHandler := NewHealthHandler()
 	e.GET("/health", healthHandler.Alive)
+
+	apiHandler := NewApiHandler(db)
+	e.GET("/balance", apiHandler.GetBalance)
 
 	verifierHandler := NewVerifierHandler()
 	e.POST("/verify", verifierHandler.Verify)
@@ -52,6 +56,7 @@ func NewRouter(webContent fs.FS) *echo.Echo {
 		return nil
 	})
 
+	// Fallback route for any static content
 	e.GET("/*", echo.WrapHandler(http.FileServer(http.FS(webContent))))
 
 	return e

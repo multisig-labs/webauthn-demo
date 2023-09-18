@@ -9,7 +9,7 @@ import (
 	"github.com/multisig-labs/webauthn-demo/pkg/handler"
 )
 
-func StartServer(host string, port int, webContent fs.FS) {
+func StartServer(host string, port int, db string, webContent fs.FS) {
 	listenAddr := fmt.Sprintf("%s:%d", host, port)
 
 	// Basically "cd" into the /public folder of the embedded content
@@ -23,6 +23,6 @@ func StartServer(host string, port int, webContent fs.FS) {
 		webContent = os.DirFS("./public")
 	}
 
-	router := handler.NewRouter(webContent)
+	router := handler.NewRouter(db, webContent)
 	router.Logger.Fatal(router.Start(listenAddr))
 }
