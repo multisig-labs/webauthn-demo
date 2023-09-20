@@ -11,12 +11,11 @@ CREATE UNIQUE INDEX accounts_address ON accounts(address);
 
 CREATE TABLE txs (
   id text PRIMARY KEY,
-	height integer NOT NULL,
   payer text NOT NULL,
   payee text NOT NULL,
   amount integer NOT NULL,
+  tx_hash text NOT NULL,
+  sig text NOT NULL,
   FOREIGN KEY(type_id) REFERENCES types(id)
 ) STRICT;
-
-CREATE UNIQUE INDEX txs_height ON txs(height);
 

@@ -30,21 +30,86 @@ type GetBalanceResponse struct {
 }
 
 func (h *ApiHandler) GetBalance(c echo.Context) error {
-	body, err := bindAndValidate[GetBalanceBody](c)
+    address := c.QueryParam("address")
+    if address == "" {
+        return c.JSON(http.StatusBadRequest, map[string]string{
+            "error": "address query parameter is required",
+        })
+    }
+
+    ctx := context.Background()
+    bal, err := h.q.GetAccountBalance(ctx, address)
+    if err != nil {
+        return toHttpError(err)
+    }
+
+    r := GetBalanceResponse{
+        Address: address,
+        Balance: bal,
+    }
+
+    return c.JSON(http.StatusOK, r)
+}
+
+type CreateTxBody struct {
+	FromAddress string `json:"from_address" validate:"required"`
+	ToAddress   string `json:"to_address" validate:"required"`
+	Amount      int64  `json:"amount" validate:"required"`
+	TxHash 		string `json:"tx_hash" validate:"required"`
+	Sig 		string `json:"sig" validate:"required"`
+}
+
+type CreateTxResponse struct {
+	Tx *db.Tx `json:"tx"`
+}
+
+func (h *ApiHandler) CreateTx(c echo.Context) error {
+	body, err := bindAndValidate[CreateTxBody](c)
 	if err != nil {
 		return toHttpError(err)
 	}
 
 	ctx := context.Background()
-	bal, err := h.q.GetAccountBalance(ctx, body.Address)
+	args := db.CreateTxParams{
+		Payer:  body.FromAddress,
+		Payee:  body.ToAddress,
+		Amount: body.Amount,
+		TxHash: body.TxHash,
+		Sig:    body.Sig,
+	}
+	// Create transaction
+	err = h.q.CreateTx(ctx, args)
+	if err != nil {
+		return toHttpError(err)
+	}
+	// Get sender balance
+	senderBalance, err := h.q.GetAccountBalance(ctx, body.FromAddress)
+	if err != nil {
+		return toHttpError(err)
+	}
+	// Get receiver balance
+	receiverBalance, err := h.q.GetAccountBalance(ctx, body.ToAddress)
+	if err != nil {
+		return toHttpError(err)
+	}
+	// Update sender balance
+	senderParams := db.UpdateAccountBalanceParams{
+		Balance: senderBalance - body.Amount,
+		Address: body.FromAddress,
+	}
+	err = h.q.UpdateAccountBalance(ctx, senderParams)
+	if err != nil {
+		return toHttpError(err)
+	}
+	// Update receiver balance
+	receiverParams := db.UpdateAccountBalanceParams{
+		Balance: receiverBalance + body.Amount,
+		Address: body.ToAddress,
+	}
+	err = h.q.UpdateAccountBalance(ctx, receiverParams)
 	if err != nil {
 		return toHttpError(err)
 	}
 
-	r := GetBalanceResponse{
-		Address: body.Address,
-		Balance: bal,
-	}
-
-	return c.JSON(http.StatusOK, r)
+	return c.JSON(http.StatusOK, nil)
 }

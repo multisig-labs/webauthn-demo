@@ -8,3 +8,5 @@ cache
 coverage
 coverage.json
 webauthn.db
+webauthn.db-shm
+webauthn.db-wal

@@ -34,9 +34,13 @@ func NewRouter(db string, webContent fs.FS) *echo.Echo {
 
 	apiHandler := NewApiHandler(db)
 	e.GET("/balance", apiHandler.GetBalance)
+	e.POST("/transfer", apiHandler.CreateTx)
 
 	verifierHandler := NewVerifierHandler()
 	e.POST("/verify", verifierHandler.Verify)
+
+
+	
 
 	// Autocreate routes for any .html files in /public that do not start with "_"
 	e.Renderer = NewTemplateRenderer(webContent)
