@@ -1,21 +1,21 @@
 package handler
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"math/big"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/protocol/webauthncose"
-	"github.com/multisig-labs/webauthn-demo/pkg/secp256r1"
+	"github.com/multisig-labs/webauthn-demo/pkg/cose"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -94,47 +94,169 @@ var v1 = `
 }
 `
 
-var sigv1 = `
+// Chrome
+var sigChrome2 = `
 {
     "type": "public-key",
     "id": "LykWH5emxDJ8J2qDPnwu67zAdGh_EfjIuXK1T_XlQ10",
-    "rawId": "LykWH5emxDJ8J2qDPnwu67zAdGh/EfjIuXK1T/XlQ10=",
+    "rawId": "LykWH5emxDJ8J2qDPnwu67zAdGh_EfjIuXK1T_XlQ10",
     "response": {
-        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiYVlfOXAxb3hBQ0JsY2Zxd01fZUxkdG5LamJMcU9Qd0ZlYmhtR2U2WTdnNCIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMCIsImNyb3NzT3JpZ2luIjpmYWxzZX0=",
-        "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4/krrmihjLHmVzzuoMdl2MFAAAAAA==",
-        "signature": "MEYCIQCgFYbnq5NNItPDk7YtVsNxyLILyXANE9eCCP/pft/9pQIhAKLfhK2bmHXWX3L86prsANhBC5XVTZ9VVutT4+UJwTF8",
+			  "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0Hp3RUoRn9XOoJ5ME3Psye4NiMgek8DqeksPtNSKM8MDhpX10nmMqVUZEILYC12mHJUpHEyLGv8o2C3sM_v2Jw",
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiYVlfOXAxb3hBQ0JsY2Zxd01fZUxkdG5LamJMcU9Qd0ZlYmhtR2U2WTdnNCIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMCIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+        "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAA",
+        "signature": "MEQCICHxKUfWq_rVATaEgupKi8g-mnrIbKp0Luc1zSyo0y_RAiBEzGJpJpdB4oXUx_VQ1R70DYCGA3uyDds1vQTBP3yHJA",
         "userHandle": "TmVv"
     },
     "clientExtensionResults": {}
+}`
+
+// Safari
+var sigSafari1 = `
+{
+	"tx": "",
+	"publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEv4CxUa2BY8HbnGVcQ7nLctZZjSxNmYfQf7zSnH3tauCOY11yPNuo1Mqixlo73cDFwMwGtWEy4ZJOzs4YpKONAg",
+	"response": {
+		"clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiYVlfOXAxb3hBQ0JsY2Zxd01fZUxkdG5LamJMcU9Qd0ZlYmhtR2U2WTdnNCIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhv",
+		"authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MdAAAAAA",
+		"signature": "MEUCIEtQi3Gpx6pUSH2dzcYdSV9ErTYMSuvWbI9dDkJmIoMgAiEAxLx8zimFRelehZ3H8dDcYM5YNWtBUKVYwoB5ITK5L98",
+		"userHandle": "UfxTSNYHWRo"
+	}
+}`
+
+// Webauthn repo test data
+var sigv2 = `
+{
+    "type": "public-key",
+    "id": "AaIBxnYfL2pDWJmIii6CYgHBruhVvFGHheWamphVioG_TnEXxKA9MW4FWnJh21zsbmRpRJso9i2JmAtWOtXfVd4oXTgYVusXwhWWsA",
+    "rawId": "AaIBxnYfL2pDWJmIii6CYgHBruhVvFGHheWamphVioG_TnEXxKA9MW4FWnJh21zsbmRpRJso9i2JmAtWOtXfVd4oXTgYVusXwhWWsA",
+    "response": {
+			  "publicKey": "pQECAyYgASFYILTrxTUQv3X4DRM6L_pk65FSMebenhCx3RMsTKoBm-AxIlggEf3qk5552QLNSh1T1oQs7_2C2qysDwN4r4fCp52Hsqs",
+        "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiZXlKaFkzUjFZV3hEYUdGc2JHVnVaMlVpT2lKTE0xRjRUMnB1VmtwTWFVZHNibFpGY0RWMllUVlJTbVZOVmxkT1psODNVRmxuZFhSbllrRjBRVlZCSWl3aVlYSmlhWFJ5WVhKNVJHRjBZU0k2SW5OcFoyNU5aVkJzWldGelpTSjkiLCJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJjcm9zc09yaWdpbiI6ZmFsc2V9",
+        "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFYftypQ",
+        "signature": "MEUCIByFAVGfkoKPEzynp-37BX_HOXSaC6-58-ELjB7BG9opAiEAyD_1mN9YAPrphcwpzK3ym2Xx8EjAapgQ326mKgQ1pW0",
+        "userHandle": "internalUserId"
+    },
+    "clientExtensionResults": {}
+}`
+
+var sigv3 = `
+{
+	"tx": "",
+	"publicKey": "pQECAyYgASFYILTrxTUQv3X4DRM6L_pk65FSMebenhCx3RMsTKoBm-AxIlggEf3qk5552QLNSh1T1oQs7_2C2qysDwN4r4fCp52Hsqs",
+	"response": {
+		"clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiZXlKaFkzUjFZV3hEYUdGc2JHVnVaMlVpT2lKTE0xRjRUMnB1VmtwTWFVZHNibFpGY0RWMllUVlJTbVZOVmxkT1psODNVRmxuZFhSbllrRjBRVlZCSWl3aVlYSmlhWFJ5WVhKNVJHRjBZU0k2SW5OcFoyNU5aVkJzWldGelpTSjkiLCJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJjcm9zc09yaWdpbiI6ZmFsc2V9",
+		"authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFYftypQ",
+		"signature": "MEUCIByFAVGfkoKPEzynp-37BX_HOXSaC6-58-ELjB7BG9opAiEAyD_1mN9YAPrphcwpzK3ym2Xx8EjAapgQ326mKgQ1pW0",
+		"userHandle": "internalUserId"
+	}
+}`
+
+var sigv4 = `
+{
+  "type": "public-key",
+  "id": "vEDOIzQ5RmuMQOACqwomUO-iADNMYE4qd-jAVsYCg68",
+  "rawId": "vEDOIzQ5RmuMQOACqwomUO-iADNMYE4qd-jAVsYCg68",
+  "response": {
+    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiYVlfOXAxb3hBQ0JsY2Zxd01fZUxkdG5LamJMcU9Qd0ZlYmhtR2U2WTdnNCIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMCIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+    "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAA",
+    "signature": "MEUCIDM4QDQytJFsT0PTUp7CKMN9oToPc0ErfW-PkbTLIA6BAiEAvbrXrMe-8i0gOPqjT0IBR7in3lz7l_xFH9hEPOhly1s",
+    "userHandle": "TmVv"
+  },
+  "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYyQ4mOHKPy6x9gOH452FT36IzKhTh9ELigHbocE4JT8lC8W2tmhLSrNYioPjtamhmtYlrBP_2n-JfJFr5lDsMQ"
 }
 `
 
-func TestSig1(t *testing.T) {
-	body := io.NopCloser(bytes.NewReader([]byte(sigv1)))
-	car := &protocol.CredentialAssertionResponse{}
+var sigv5 = `
+{
+  "type": "public-key",
+  "id": "vEDOIzQ5RmuMQOACqwomUO-iADNMYE4qd-jAVsYCg68",
+  "rawId": "vEDOIzQ5RmuMQOACqwomUO-iADNMYE4qd-jAVsYCg68",
+  "response": {
+    "clientDataJSON": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiYVlfOXAxb3hBQ0JsY2Zxd01fZUxkdG5LamJMcU9Qd0ZlYmhtR2U2WTdnNCIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMCIsImNyb3NzT3JpZ2luIjpmYWxzZX0",
+    "authenticatorData": "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAA",
+    "signature": "MEYCIQDAYDP2G11W5q5Cp8TPvup4NHasuObsf9s9DBjluZTbUAIhAIGilk9__ivTXYivGV-HWfS3nXEtz2kFxJP9i1XS9cqW",
+    "userHandle": "TmVv"
+  },
+  "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYyQ4mOHKPy6x9gOH452FT36IzKhTh9ELigHbocE4JT8lC8W2tmhLSrNYioPjtamhmtYlrBP_2n-JfJFr5lDsMQ"
+}
+`
 
-	pcr, err := protocol.ParseCredentialRequestResponseBody(body)
+func TestV3(t *testing.T) {
+	w := Webauthn{}
+	err := json.Unmarshal([]byte(sigv5), &w)
 	require.NoError(t, err)
-	spew.Dump(pcr)
+	ok, err := w.Verify()
+	require.NoError(t, err)
+	require.True(t, ok, "sig failed to verify")
 }
 
 type Data struct {
 	Response struct {
-		PublicKey protocol.URLEncodedBase64 `json:"publicKey"`
+		PublicKey         protocol.URLEncodedBase64 `json:"publicKey"`
+		ClientDataJSON    protocol.URLEncodedBase64 `json:"clientDataJSON"`
+		AuthenticatorData protocol.URLEncodedBase64 `json:"authenticatorData"`
+		Signature         protocol.URLEncodedBase64 `json:"signature"`
 	} `json:"response"`
+	Tx string `json:"tx"`
 }
 
 func TestV1(t *testing.T) {
-	body := VerifyBody{}
-	err := json.Unmarshal([]byte(v1), &body)
+	ccr := Data{}
+	err := json.Unmarshal([]byte(ccrChrome), &ccr)
 	require.NoError(t, err)
-	publicKey, msgHash, signature, err := body.ToBytes()
-	require.NoError(t, err)
-	pk, err := x509.ParsePKIXPublicKey(publicKey)
+	pk, err := x509.ParsePKIXPublicKey(ccr.Response.PublicKey)
 	require.NoError(t, err)
 	epk, ok := pk.(*ecdsa.PublicKey)
 	require.True(t, ok)
-	ok = secp256r1.VerifySignature(epk, msgHash, signature)
+	spew.Dump(epk)
+	clientDataHash := sha256.Sum256([]byte(string(ccr.Response.ClientDataJSON)))
+	sigData := append(ccr.Response.AuthenticatorData, clientDataHash[:]...)
+	msgHash := sha256.Sum256(sigData)
+	ok = ecdsa.VerifyASN1(epk, msgHash[:], ccr.Response.Signature)
+	// ok = secp256r1.VerifySignature(epk, msgHash[:], ccr.Response.Signature)
+	require.True(t, ok, "Failed to verify sig")
+}
+
+func TestCose(t *testing.T) {
+	ccr := Data{}
+	err := json.Unmarshal([]byte(sigv2), &ccr)
+	require.NoError(t, err)
+
+	coseKey := cose.COSEKey{}
+	err = cbor.Unmarshal(ccr.Response.PublicKey, &coseKey)
+	require.NoError(t, err)
+	spew.Dump(coseKey)
+	t.Log(hex.EncodeToString([]byte(ccr.Response.PublicKey)))
+	// t.Fatal()
+}
+
+// Use webauthncose fns with their test data sigv2, WORKS
+func TestSig12(t *testing.T) {
+	ccr := Data{}
+	err := json.Unmarshal([]byte(sigv2), &ccr)
+	require.NoError(t, err)
+	// https://github.com/go-webauthn/webauthn/blob/709be4f6e0357862b4a5fcda5d27aff2d8dda6a4/protocol/assertion.go#L150-L151
+	clientDataHash := sha256.Sum256([]byte(string(ccr.Response.ClientDataJSON)))
+	sigData := append(ccr.Response.AuthenticatorData, clientDataHash[:]...)
+	msgHash := sha256.Sum256(sigData)
+
+	// In their test data, this is NOT the result of `getPublicKey()`
+	pubKey, err := webauthncose.ParsePublicKey(ccr.Response.PublicKey)
+	require.NoError(t, err)
+	pk, ok := pubKey.(webauthncose.EC2PublicKeyData)
+	require.True(t, ok, "Failed to verify sig")
+	spew.Dump(pk)
+	ok, err = webauthncose.VerifySignature(pk, sigData, ccr.Response.Signature)
+	require.NoError(t, err)
+	require.True(t, ok, "Failed to verify sig")
+
+	// Try verifying a different way as well
+	epk2 := &ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     big.NewInt(0).SetBytes(pk.XCoord),
+		Y:     big.NewInt(0).SetBytes(pk.YCoord),
+	}
+	ok = ecdsa.VerifyASN1(epk2, msgHash[:], ccr.Response.Signature)
 	require.True(t, ok, "Failed to verify sig")
 }
 
@@ -268,5 +390,28 @@ func TestP256SignatureVerification(t *testing.T) {
 
 	ok = ecdsa.Verify(pk2, h, esig.R, esig.S)
 	assert.True(t, ok, "invalid EC signature")
-
 }
+
+// sigv2 publicKey decodes to this
+// a5010203262001215820b4ebc53510bf75f80d133a2ffa64eb915231e6de9e10b1dd132c4caa019be03122582011fdea939e79d902cd4a1d53d6842ceffd82daacac0f0378af87c2a79d87b2ab
+// (cose.COSEKey) {
+//  Kty: (int) 2,
+//  Kid: ([]uint8) <nil>,
+//  Alg: (int) -7,
+//  KeyOpts: (int) 0,
+//  IV: ([]uint8) <nil>,
+//  CrvOrNOrK: (cbor.RawMessage) (len=1 cap=1) {
+//   00000000  01                                                |.|
+//  },
+//  XOrE: (cbor.RawMessage) (len=34 cap=34) {
+//   00000000  58 20 b4 eb c5 35 10 bf  75 f8 0d 13 3a 2f fa 64  |X ...5..u...:/.d|
+//   00000010  eb 91 52 31 e6 de 9e 10  b1 dd 13 2c 4c aa 01 9b  |..R1.......,L...|
+//   00000020  e0 31                                             |.1|
+//  },
+//  Y: (cbor.RawMessage) (len=34 cap=34) {
+//   00000000  58 20 11 fd ea 93 9e 79  d9 02 cd 4a 1d 53 d6 84  |X .....y...J.S..|
+//   00000010  2c ef fd 82 da ac ac 0f  03 78 af 87 c2 a7 9d 87  |,........x......|
+//   00000020  b2 ab                                             |..|
+//  },
+//  D: ([]uint8) <nil>
+// }

@@ -1,14 +1,14 @@
 {{template "layout" .}} {{define "content"}}
     <script src="https://unpkg.com/@simplewebauthn/browser"></script>
     <script type="module">
-      import { createKey, signMsg } from "/js/webauthn.js";
+      import { createKey, signTx } from "/js/webauthn.js";
       const { platformAuthenticatorIsAvailable } = SimpleWebAuthnBrowser;
 
       (async () => {
         if (await platformAuthenticatorIsAvailable()) {
           console.log("webauthn avail");
           window.createKey = createKey;
-          window.signMsg = signMsg;
+          window.signTx = signTx;
         } else {
           console.log("webauthn not avail");
         }
@@ -34,19 +34,23 @@
     <button 
       _="on click 
         set dh to #dh 
-        then call signMsg(dh.value) 
-        then put it.sig into #sig.value 
-        then put it.hash into #dataHash.value"
+        then get JSON.parse(localStorage.getItem('pk'))
+        then put it.publicKey into pk
+        then call signTx(dh.value, pk) 
+        then call JSON.stringify(it, null, 2)
+        then put it into #sign-result"
     >Sign</button>
     <br />
-    <form hx-post="/verify" hx-target="#sign-result" hx-ext='json-enc'>
+    <pre id="sign-result"></pre>
+    <br />
+    <form hx-post="/verify" hx-target="#verify-result" hx-ext='json-enc'>
       pubKey: <input id="pubKey" name="pubKey" />
       Hash: <input id="dataHash" name="dataHash" />
       sig: <input id="sig" name="sig" />
       <button type="submit">Verify Sig</button>
     </form>
     <br />
-    <div id="sign-result"></div>
+    <div id="verify-result"></div>
     <br />
     <input style="width: 200px;" value="chrome://settings/passkeys"></input>
     </div>

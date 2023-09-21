@@ -47,6 +47,9 @@ func VerifySignature(pubKey *ecdsa.PublicKey, dataHashByte, signatureByte []byte
 	if pubKey.X == nil || pubKey.Y == nil {
 		return false
 	}
+	if len(dataHashByte) != 32 {
+		panic("not a hash")
+	}
 
 	// type ECDSASignature struct {
 	// 	R, S *big.Int

@@ -3,12 +3,6 @@ import { AsnParser } from "https://esm.sh/@peculiar/asn1-schema";
 import { platformAuthenticatorIsAvailable } from "https://esm.sh/@simplewebauthn/browser";
 import { toHex, fromHex } from "https://esm.sh/viem@1.10.14";
 
-function toHexString(byteArray) {
-  return Array.from(byteArray, function (byte) {
-    return ("0" + (byte & 0xff).toString(16)).slice(-2);
-  }).join("");
-}
-
 export async function createKey() {
   let credential = await navigator.credentials.create({
     publicKey: {
@@ -26,15 +20,13 @@ export async function createKey() {
       user: {
         id: Uint8Array.from("Neo", (c) => c.charCodeAt(0)),
         name: "Neo",
-        displayName: "neo2@matrix.io",
+        displayName: "neo@matrix.io",
       },
       pubKeyCredParams: [{ type: "public-key", alg: -7 }],
     },
   });
-  console.log(credential);
-  window.z = credential;
+  console.log("navigator.credentials.create()", credential);
   const cc = convertCredential(credential);
-  console.log(cc);
   return cc;
 }
 
@@ -45,19 +37,12 @@ async function sha256(msg) {
   return bufferToHex(hashBuffer);
 }
 
-export async function signMsg(msg) {
-  const hash = await sha256(msg);
-  const sig = await signHash(hash);
-  return { hash, sig };
+export async function signTx(tx, pubKey) {
+  const hash = await sha256(tx);
+  return await signHash(hash, pubKey);
 }
 
-export async function signHash(hash) {
-  hash = hash || "";
-  if (hash == "") {
-    console.log("empty hash");
-    return;
-  }
-
+export async function signHash(hash, pubKey) {
   const challenge = fromHex(hash, "bytes");
   const publicKey = {
     challenge: challenge,
@@ -65,29 +50,52 @@ export async function signHash(hash) {
   };
 
   let resp = await navigator.credentials.get({ publicKey });
-  console.log("hash", hash);
-  console.log(resp);
+  console.log("navigator.credentials.get()", resp);
   const convResp = convertGetResponse(resp);
-  console.log(convResp);
-  const sigb = new Uint8Array(resp.response.signature);
-  console.log("hex sig:", toHex(sigb));
-  return toHex(sigb);
+  convResp.publicKey = pubKey;
+  console.log("navigator.credentials.get()", convResp);
+  return convResp;
 }
 
-function convertPropertiesToBase64(obj, props) {
+function convertCredential(credential) {
+  const { id, rawId, response, type } = credential;
+
+  return {
+    id,
+    rawId: bufferToBase64URLString(rawId),
+    type,
+    publicKey: bufferToBase64URLString(response.getPublicKey()),
+  };
+}
+
+function convertGetResponse(webauthnResponse) {
+  return {
+    type: webauthnResponse.type,
+    id: webauthnResponse.id,
+    rawId: bufferToBase64URLString(webauthnResponse.rawId),
+    response: convertPropertiesToBase64URLString(webauthnResponse.response, [
+      "clientDataJSON",
+      "authenticatorData",
+      "signature",
+      "userHandle",
+    ]),
+  };
+}
+
+function convertPropertiesToBase64URLString(obj, props) {
   return props.reduce(
     (acc, property) =>
-      Object.assign(acc, { [property]: bufferToBase64(obj[property]) }),
+      Object.assign(acc, {
+        [property]: bufferToBase64URLString(obj[property]),
+      }),
     {}
   );
 }
 
-function bufferToBase64(input) {
-  if (typeof input === "string") {
-    return input;
-  }
-  const arr = new Uint8Array(input);
-  return btoa(String.fromCharCode(...arr));
+function toHexString(byteArray) {
+  return Array.from(byteArray, function (byte) {
+    return ("0" + (byte & 0xff).toString(16)).slice(-2);
+  }).join("");
 }
 
 function bufferToHex(buffer) {
@@ -106,6 +114,14 @@ export function bufferToBase64URLString(buffer) {
   const base64String = btoa(str);
 
   return base64String.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function webauthnSupported() {
+  return Boolean(
+    navigator.credentials?.create &&
+      navigator.credentials?.get &&
+      window.PublicKeyCredential
+  );
 }
 
 function base64URLStringToBuffer(base64URLString) {
@@ -133,77 +149,4 @@ function base64URLStringToBuffer(base64URLString) {
   }
 
   return buffer;
-}
-
-// https://github.com/MasterKale/SimpleWebAuthn/blob/master/packages/browser/src/methods/startRegistration.ts
-function convertCredential(credential) {
-  const { id, rawId, response, type } = credential;
-  // Continue to play it safe with `getTransports()` for now, even when L3 types say it's required
-  let transports = undefined;
-  if (typeof response.getTransports === "function") {
-    transports = response.getTransports();
-  }
-
-  // L3 says this is required, but browser and webview support are still not guaranteed.
-  let responsePublicKeyAlgorithm = undefined;
-  if (typeof response.getPublicKeyAlgorithm === "function") {
-    responsePublicKeyAlgorithm = response.getPublicKeyAlgorithm();
-  }
-
-  let responsePublicKey = undefined;
-  if (typeof response.getPublicKey === "function") {
-    const _publicKey = response.getPublicKey();
-    if (_publicKey !== null) {
-      responsePublicKey = bufferToBase64URLString(_publicKey);
-    }
-  }
-
-  // L3 says this is required, but browser and webview support are still not guaranteed.
-  let responseAuthenticatorData = undefined;
-  if (typeof response.getAuthenticatorData === "function") {
-    responseAuthenticatorData = bufferToBase64URLString(
-      response.getAuthenticatorData()
-    );
-  }
-
-  return {
-    id,
-    rawId: bufferToBase64URLString(rawId),
-    response: {
-      attestationObject: bufferToBase64URLString(response.attestationObject),
-      clientDataJSON: bufferToBase64URLString(response.clientDataJSON),
-      transports,
-      publicKeyAlgorithm: responsePublicKeyAlgorithm,
-      publicKey: responsePublicKey,
-      authenticatorData: responseAuthenticatorData,
-    },
-    type,
-    clientExtensionResults: credential.getClientExtensionResults(),
-    authenticatorAttachment: credential.authenticatorAttachment,
-    // HACK adding for convenience for now
-    publicKeyHex: bufferToHex(response.getPublicKey()),
-  };
-}
-
-function convertGetResponse(webauthnResponse) {
-  return {
-    type: webauthnResponse.type,
-    id: webauthnResponse.id,
-    rawId: bufferToBase64(webauthnResponse.rawId),
-    response: convertPropertiesToBase64(webauthnResponse.response, [
-      "clientDataJSON",
-      "authenticatorData",
-      "signature",
-      "userHandle",
-    ]),
-    clientExtensionResults: webauthnResponse.getClientExtensionResults(),
-  };
-}
-
-function webauthnSupported() {
-  return Boolean(
-    navigator.credentials?.create &&
-      navigator.credentials?.get &&
-      window.PublicKeyCredential
-  );
 }

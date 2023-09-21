@@ -117,3 +117,26 @@ https://ethresear.ch/t/passkey-based-account-abstraction-signer-for-smart-contra
 https://github.com/indutny/elliptic/blob/43ac7f230069bd1575e1e4a58394a512303ba803/lib/elliptic/ec/index.js#L196
 
 https://ethereum-magicians.org/t/eip-7212-precompiled-for-secp256r1-curve-support/14789/42
+
+# Constructing data that was signed
+
+https://github.com/MasterKale/SimpleWebAuthn/blob/e02dce6f2f83d8923f3a549f84e0b7b3d44fa3da/packages/server/src/authentication/verifyAuthenticationResponse.ts#L205C3-L208C80
+
+```js
+const clientDataHash = await toHash(
+  isoBase64URL.toBuffer(assertionResponse.clientDataJSON)
+);
+const signatureBase = isoUint8Array.concat([authDataBuffer, clientDataHash]);
+```
+
+https://github.com/go-webauthn/webauthn/blob/709be4f6e0357862b4a5fcda5d27aff2d8dda6a4/protocol/assertion.go#L153
+
+```go
+	// Step 15. Let hash be the result of computing a hash over the cData using SHA-256.
+	clientDataHash := sha256.Sum256(p.Raw.AssertionResponse.ClientDataJSON)
+
+	// Step 16. Using the credential public key looked up in step 3, verify that sig is
+	// a valid signature over the binary concatenation of authData and hash.
+
+	sigData := append(p.Raw.AssertionResponse.AuthenticatorData, clientDataHash[:]...)
+```

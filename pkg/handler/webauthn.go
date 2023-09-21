@@ -2,6 +2,7 @@ package handler
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
@@ -24,6 +25,52 @@ func NewWebauthnHandler() *WebauthnHandler {
 
 // 	return ccr.Parse()
 // }
+
+// Front end will send the AuthenticatorAssertionResponse (base64URL encoded)
+// plus the publicKey obtained from `getPublicKey()`
+// and the Tx (the hash of which is the challenge)
+type Webauthn struct {
+	// Must be result of calling `getPublicKey()` on FE
+	PublicKey protocol.URLEncodedBase64 `json:"publicKey"`
+	// Whatever TX format we decide on goes here
+	Tx string `json:"tx"`
+	// AuthenticatorAssertionResponse (binary fields encoded as base64URL)
+	Response struct {
+		ClientDataJSON    protocol.URLEncodedBase64 `json:"clientDataJSON"`
+		AuthenticatorData protocol.URLEncodedBase64 `json:"authenticatorData"`
+		Signature         protocol.URLEncodedBase64 `json:"signature"`
+	} `json:"response"`
+}
+
+func (w Webauthn) GetPublicKey() (*ecdsa.PublicKey, error) {
+	pk, err := x509.ParsePKIXPublicKey(w.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	epk, ok := pk.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("unable to cast public key to ecdsa.PublicKey")
+	}
+	return epk, nil
+}
+
+// Construct the data that the `navigator.credentials.get` used to sign
+func (w Webauthn) SignedDataHash() [32]byte {
+	clientDataHash := sha256.Sum256([]byte(string(w.Response.ClientDataJSON)))
+	sigData := append(w.Response.AuthenticatorData, clientDataHash[:]...)
+	msgHash := sha256.Sum256(sigData)
+	return msgHash
+}
+
+func (w Webauthn) Verify() (bool, error) {
+	k, err := w.GetPublicKey()
+	if err != nil {
+		return false, err
+	}
+	h := w.SignedDataHash()
+	ok := ecdsa.VerifyASN1(k, h[:], w.Response.Signature)
+	return ok, nil
+}
 
 // Used for just picking out the pubkey from the webauthn registration JSON
 type ccrResponse struct {
