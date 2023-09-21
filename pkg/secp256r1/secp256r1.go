@@ -42,11 +42,23 @@ var (
 // signature size can vary from 70 to 72 bytes, so we are left-trimming
 // signature = common.TrimLeftZeroes(signature)
 
-func VerifySignature(pubKeyByte, dataHashByte, signatureByte []byte) bool {
-	pubKey := newPubKey(pubKeyByte)
+func VerifySignature(pubKey *ecdsa.PublicKey, dataHashByte, signatureByte []byte) bool {
+	// pubKey := newPubKey(pubKeyByte)
 	if pubKey.X == nil || pubKey.Y == nil {
 		return false
 	}
+
+	// type ECDSASignature struct {
+	// 	R, S *big.Int
+	// }
+	// esig := &ECDSASignature{}
+
+	// if _, err := asn1.Unmarshal(signatureByte, esig); err != nil {
+	// 	return false
+	// }
+
+	// ok := ecdsa.Verify(pubKey, dataHashByte, esig.R, esig.S)
+	// return ok
 
 	return ecdsa.VerifyASN1(pubKey, dataHashByte, signatureByte)
 }

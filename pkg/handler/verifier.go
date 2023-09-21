@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"crypto/ecdsa"
+	"crypto/x509"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -18,14 +21,15 @@ func NewVerifierHandler() *VerifierHandler {
 
 type VerifyBody struct {
 	PublicKey string `json:"pubKey" validate:"required,hexadecimal"`
-	DataHash  string `json:"dataHash" validate:"required,hexadecimal"`
+	MsgHash   string `json:"msgHash" validate:"required,hexadecimal"`
+	Msg       string `json:"msg"`
 	Signature string `json:"sig" validate:"required,hexadecimal"`
 }
 
-func (v VerifyBody) ToBytes() (publicKey, dataHash, signature []byte, errs error) {
+func (v VerifyBody) ToBytes() (publicKey, msgHash, signature []byte, errs error) {
 	publicKey, err := hex.DecodeString(strings.TrimPrefix(v.PublicKey, "0x"))
 	errs = errors.Join(errs, err)
-	dataHash, err = hex.DecodeString(strings.TrimPrefix(v.DataHash, "0x"))
+	msgHash, err = hex.DecodeString(strings.TrimPrefix(v.MsgHash, "0x"))
 	errs = errors.Join(errs, err)
 	signature, err = hex.DecodeString(strings.TrimPrefix(v.Signature, "0x"))
 	errs = errors.Join(errs, err)
@@ -37,10 +41,20 @@ func (handler *VerifierHandler) Verify(c echo.Context) error {
 	if err != nil {
 		return toHttpError(err)
 	}
-	publicKey, dataHash, signature, err := body.ToBytes()
+	publicKey, msgHash, signature, err := body.ToBytes()
 	if err != nil {
 		return toHttpError(err)
 	}
-	ok := secp256r1.VerifySignature(publicKey, dataHash, signature)
+
+	pk, err := x509.ParsePKIXPublicKey(publicKey)
+	if err != nil {
+		return toHttpError(err)
+	}
+	epk, ok := pk.(*ecdsa.PublicKey)
+	if !ok {
+		return toHttpError(fmt.Errorf("unable to cast public key to ecdsa.PublicKey"))
+	}
+
+	ok = secp256r1.VerifySignature(epk, msgHash, signature)
 	return c.JSON(http.StatusOK, map[string]bool{"ok": ok})
 }

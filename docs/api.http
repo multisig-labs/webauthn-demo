@@ -1,0 +1,16 @@
+@url = http://localhost:8000
+
+GET {{url}}/
+content-type: application/json
+
+###
+
+POST {{url}}/verify
+content-type: application/json
+
+{
+  "pubKey":"0x3059301306072a8648ce3d020106082a8648ce3d03010703420004d07a77454a119fd5cea09e4c1373ecc9ee0d88c81e93c0ea7a4b0fb4d48a33c3038695f5d2798ca955191082d80b5da61c95291c4c8b1aff28d82dec33fbf627",
+  "msgHash": "0x698ffda75a3100206571fab033f78b76d9ca8db2ea38fc0579b86619ee98ee0e",
+  "msg":"",
+  "sig":"0x3045022100e7715d2266894b8866a24f5d407663a63bbf87d8e9c96bbff40c3ff73ca7d31802202d82c2d958225764147076db76bcb120ef4a4b70515b26208c80560d877b0ede"
+}

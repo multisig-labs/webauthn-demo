@@ -1,64 +1,53 @@
-<html>
-  <head>
+{{template "layout" .}} {{define "content"}}
     <script src="https://unpkg.com/@simplewebauthn/browser"></script>
     <script type="module">
+      import { createKey, signMsg } from "/js/webauthn.js";
       const { platformAuthenticatorIsAvailable } = SimpleWebAuthnBrowser;
 
       (async () => {
         if (await platformAuthenticatorIsAvailable()) {
-          // const publicKey = {
-          //   challenge: new Uint8Array([
-          //     117, 61, 252, 231, 191, 241, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          //     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          //   ]),
-          //   userVerification: "required",
-          // };
-
-          // let resp = await navigator.credentials.get({ publicKey });
-          // console.log(resp);
-          // console.log(JSON.stringify(resp));
-          // return;
-
-          let credential = await navigator.credentials.create({
-            publicKey: {
-              challenge: new Uint8Array([
-                117, 61, 252, 231, 191, 241, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-              ]),
-              authenticatorSelection: {
-                authenticatorAttachment: "platform",
-                requireResidentKey: true,
-                residentKey: "required",
-              },
-              rp: {
-                name: "Morpheus",
-              },
-              user: {
-                id: new Uint8Array([79, 252, 83, 72, 214, 7, 89, 26]),
-                name: "Neo",
-                displayName: "neo@matrix.io",
-              },
-              pubKeyCredParams: [{ type: "public-key", alg: -7 }],
-            },
-          });
-          console.log(credential);
-          console.log(JSON.stringify(credential));
-          /**
-           * Prompt the user to use Touch ID/Windows Hello/etc... or security keys to register or
-           * authenticate
-           *
-           * How to decide which name to show for the device's platform authenticator is an exercise
-           * left up to the developer (your best bet is User Agent analysis)
-           */
+          console.log("webauthn avail");
+          window.createKey = createKey;
+          window.signMsg = signMsg;
         } else {
-          /**
-           * Only prompt the user to use security keys to register or authenticate
-           */
+          console.log("webauthn not avail");
         }
       })();
     </script>
-  </head>
-  <body>
+    <style>
+      form > input {
+        width: 200px;
+      }
+    </style>
+    <div class="container">
     <h1>WebAuthn</h1>
-  </body>
-</html>
+    <button 
+      _="on click call createKey() then call localStorage.setItem('pk',JSON.stringify(it, null, 2))"
+    >Create Key</button><br />
+    <br />
+    <textarea style="width: 1000px;height: 400px;padding: 40px;" 
+      _="on load get localStorage.getItem('pk') then put it into me"
+    ></textarea>
+
+    <hr />
+    Msg: <input id="dh" value="GoGoPoolFTW"></input>
+    <button 
+      _="on click 
+        set dh to #dh 
+        then call signMsg(dh.value) 
+        then put it.sig into #sig.value 
+        then put it.hash into #dataHash.value"
+    >Sign</button>
+    <br />
+    <form hx-post="/verify" hx-target="#sign-result" hx-ext='json-enc'>
+      pubKey: <input id="pubKey" name="pubKey" />
+      Hash: <input id="dataHash" name="dataHash" />
+      sig: <input id="sig" name="sig" />
+      <button type="submit">Verify Sig</button>
+    </form>
+    <br />
+    <div id="sign-result"></div>
+    <br />
+    <input style="width: 200px;" value="chrome://settings/passkeys"></input>
+    </div>
+  {{ end }}
