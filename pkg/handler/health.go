@@ -13,5 +13,5 @@ func NewHealthHandler() *HealthHandler {
 }
 
 func (handler *HealthHandler) Alive(c echo.Context) error {
-	return c.JSON(http.StatusOK, map[string]bool{"alive": true})
+	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 }

@@ -2,45 +2,47 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	_ "embed"
 
 	_ "modernc.org/sqlite"
 )
 
+//go:embed schema.sql
+var schema string
+
 func OpenDB(dbFileName string) (*sql.DB, *Queries) {
-	dbFile, err := sql.Open("sqlite", dbFileName)
-	if err != nil {
-		panic(err)
+	var dbFile *sql.DB
+	var err error
+
+	if _, err = os.Stat(dbFileName); err == nil {
+		dbFile, err = sql.Open("sqlite", dbFileName)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		// Create the DB
+		if err := os.MkdirAll(filepath.Dir(dbFileName), 0755); err != nil {
+			panic(err)
+		}
+
+		dbFile, err = sql.Open("sqlite", dbFileName)
+		if err != nil {
+			panic(err)
+		}
+		if _, err = dbFile.Exec(schema); err != nil {
+			panic(err)
+		}
+		fmt.Println("Database created successfully.")
 	}
+
 	_, err = dbFile.Exec("PRAGMA optimize;PRAGMA foreign_keys=ON;PRAGMA journal_mode=WAL;")
 	if err != nil {
 		panic(err)
 	}
 
-	// Create tables
-	schema := `
-CREATE TABLE accounts (
-  id integer PRIMARY KEY,
-  address text NOT NULL,
-  balance integer NOT NULL
-);
-CREATE UNIQUE INDEX accounts_address ON accounts(address);
-CREATE TABLE txs (
-  id text PRIMARY KEY,
-  payer text NOT NULL,
-  payee text NOT NULL,
-  amount integer NOT NULL,
-  tx_hash text NOT NULL,
-  sig text NOT NULL
-);
-`
-	_, err = dbFile.Exec(schema)
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = dbFile.Exec(`INSERT INTO accounts (address, balance) VALUES ('dummyAddr1', 1000), ('dummyAddr2', 500)`)
-	if err != nil {
-		panic(err)
-	}
 	return dbFile, New(dbFile)
 }

@@ -28,7 +28,7 @@ func serveCmd() {
 	args := struct {
 		Host string `cli:"--host, host" default:"0.0.0.0"`
 		Port int    `cli:"--port, port" default:"8000"`
-		Db   string `cli:"--db, database" default:"webauthn.db"`
+		Db   string `cli:"--db, database" default:"data/webauthn.db"`
 	}{}
 	mcli.Parse(&args, mcli.WithErrorHandling(flag.ExitOnError))
 

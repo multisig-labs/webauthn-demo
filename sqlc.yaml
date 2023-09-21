@@ -1,4 +1,4 @@
-version: 2
+version: "2"
 sql:
   - engine: "sqlite"
     schema: "pkg/db/schema.sql"
@@ -7,3 +7,6 @@ sql:
       go:
         package: "db"
         out: "pkg/db"
+        emit_json_tags: true
+        emit_empty_slices: true
+        json_tags_case_style: "none"

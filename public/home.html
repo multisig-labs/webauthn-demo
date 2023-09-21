@@ -1,28 +1,157 @@
 {{template "layout" .}} {{define "content"}}
-<div class="masthead mb-1">
-  <div class="container-xxl bd-gutter">
-    <div class="col-md-8 mx-auto text-center mt-5">
-      <h1 class="mb-1 fw-semibold">WebAuthN</h1>
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Wallet</h5>
-          <div class="card-text">
-            <div>1,459 HYPER</div>
-            <div>
-              <button>Send</button>
-              <button>Recv</button>
+<script type="module" src="/js/app.js"></script>
+
+<div class="container" x-data="wallets">
+  <div class="row">
+    <div class="col-2"></div>
+    <div class="col-8">
+      <h1>WebAuthn Demo</h1>
+      <div class="border mb-4">
+        <p class="px-4 my-2">
+          Imagine a world where signing crypto transactions was as seamless as using ApplePay. Well that day is coming
+          soon. All the pieces are in place. We tried fitting some of the existing Lego pieces together, to see how far
+          we could get. This page is a demo of using the Webauthn APIs to create a private key (wallet) that lives on
+          your device or on your phone, and then using that key to sign transactions, and send them to a Go backend
+          where they are cryptographically verified using the secp256r1 (P256) curve.
+        </p>
+        <p class="px-4 my-2">
+          <a href="/blog">Blog Post</a>
+        </p>
+      </div>
+
+      <h2>
+        Wallets
+        <span class="fs-6">
+          <a href="#" class="icon-link icon-link-hover" x-on:click="deleteWallets()">
+            Clear<i class="bi bi-trash"></i>
+          </a>
+        </span>
+      </h2>
+      <ul>
+        <template x-for="walletName in Object.keys(wallets)">
+          <li>
+            <span x-text="walletName"></span>&nbsp;&nbsp;&nbsp;&nbsp;(addr:
+            <span x-text="wallets[walletName].address"></span>)
+            <a href="#" class="icon-link icon-link-hover" x-on:click="addFunds(walletName)"
+              >Add Funds<i class="bi bi-cash-coin"></i
+            ></a>
+          </li>
+        </template>
+      </ul>
+      <form @submit.prevent="">
+        <div x-data="{walletName:'', mobile:''}">
+          <div class="d-flex flex-row-reverse mb-3">
+            <input x-model="walletName" placeholder="Wallet Name" />
+            <button x-on:click="createWallet(walletName, mobile)" class="btn btn-primary me-2">Create Wallet</button>
+          </div>
+          <div class="d-flex flex-row-reverse mb-3">
+            <div class="form-check">
+              <label class="form-check-label" for="mobileOn"> Mobile Device </label>
+              <input x-model="mobile" class="form-check-input" type="radio" id="mobileOn" value="true" />
             </div>
-            <a href="#" class="btn btn-primary">Go somewhere</a>
+            <div class="form-check me-3">
+              <label class="form-check-label" for="mobileOff"> This Device </label>
+              <input x-model="mobile" class="form-check-input" type="radio" id="mobileOff" value="" />
+            </div>
           </div>
         </div>
+      </form>
+
+      <hr />
+
+      <div x-data="{walletName:'',to:'',amt:''}">
+        <form @submit.prevent="">
+          <div class="row mb-3">
+            <label for="walletName" class="col-sm-2 col-form-label">From:</label>
+            <div class="col-sm-10">
+              <select class="form-select" id="walletName" x-model="walletName">
+                <option>(Select Wallet)</option>
+                <template x-for="wallet in wallets">
+                  <option :value="wallet.walletName" x-text="wallet.walletName + '  [' + wallet.address + ']'"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <label for="to" class="col-sm-2 col-form-label">To:</label>
+            <div class="col-sm-10">
+              <input id="to" class="form-control" x-model="to" placeholder="Address" />
+            </div>
+          </div>
+          <div class="row mb-3">
+            <label for="amt" class="col-sm-2 col-form-label">Amt:</label>
+            <div class="col-sm-10">
+              <input id="amt" class="form-control" x-model="amt" placeholder="Integer amount" />
+            </div>
+          </div>
+          <div class="d-flex flex-row-reverse">
+            <button class="btn btn-primary" x-on:click="signTx(walletName, to, amt)">Send</button>
+          </div>
+        </form>
+      </div>
+      <h2>Blockchain Accounts on Server</h2>
+      <div class="overflow-auto" style="max-height: 500px">
+        <table class="table">
+          <thead>
+            <tr>
+              <td>Address</td>
+              <td>Balance</td>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="account in accounts">
+              <tr>
+                <td><span x-text="account.address"></span></td>
+                <td><span x-text="account.balance"></span></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Transactions</h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <td>Height</td>
+            <td>Payer</td>
+            <td>Payee</td>
+            <td>Amount</td>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="tx in txs">
+            <tr>
+              <td><span x-text="tx.height"></span></td>
+              <td><span x-text="tx.payer"></span></td>
+              <td><span x-text="tx.payee"></span></td>
+              <td><span x-text="tx.amount"></span></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
+      <div class="mt-3">
+        <h3>Response from server...</h3>
+        <pre x-show="verificationResponse" x-text="JSON.stringify(verificationResponse,null,2)"></pre>
+      </div>
+      <div class="mt-3">
+        <h3>Data sent to server...</h3>
+        <div x-show="signedTx" class="alert alert-light" role="alert">
+          This JSON object encodes our transaction, and was signed by your browser using your passkey. The backend Go
+          code will verify the signature, and parse out the tx JSON to execute.
+        </div>
+        <pre x-show="signedTx" x-text="JSON.stringify(signedTx,null,2)"></pre>
+      </div>
+      <br />
+
+      <div class="alert alert-info" role="alert">
+        Go to this URL to see your Passkeys in Chrome
+        <input style="width: 200px" value="chrome://settings/passkeys" />
       </div>
     </div>
+    <div class="col-2"></div>
   </div>
-
-  <style>
-    .copyable {
-      cursor: copy;
-    }
-  </style>
-  {{ end }}
 </div>
+
+{{ end }}

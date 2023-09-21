@@ -23,6 +23,8 @@ func StartServer(host string, port int, db string, webContent fs.FS) {
 		webContent = os.DirFS("./public")
 	}
 
+	fmt.Printf("\n\nNavigate to: http://%s/home\n\n", listenAddr)
+
 	router := handler.NewRouter(db, webContent)
 	router.Logger.Fatal(router.Start(listenAddr))
 }

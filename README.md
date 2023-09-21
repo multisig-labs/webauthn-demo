@@ -1,27 +1,35 @@
-# WebAuthn Playground
+# Webauthn for Crypto Demo
 
-# 💡Idea
+Imagine a world where signing crypto transactions was as seamless as using ApplePay. Well that day is coming soon. All the pieces are in place. Unfortunately, legacy L1 blockchains will be unable to take full advantage. But if we start with a latest generation blockchain system and bake this new technology into it from the start, magic can happen!
 
-Do crypto with WebAuthn
+So, we tried fitting some of the existing Lego pieces together, to see how far we could get. This repo is a demo of using the Webauthn APIs to create a private key (wallet) that lives on your device or on your phone, and then using that key to sign transactions, and send them to a Go backend where they are cryptographically verified.
 
-restish post :8000/verify pubKey: 0x03b434054a968479e6d1adb7b6185d1373c5b8f9cdd0813028327e6a342d702df6, dataHash: 0x989a647219cb0c3de61ec045ea197b8c48e8e40bc3fda8b93033b96b109a222a, sig: 0x3045022074bcdc20e53b9342b8dad74aa65dfc8c0b80c3963f596440452316c762fa4b81022100f693c4b11ca20c3cffe96a4d0f404fcfeaf4b954d3d4dd162fe156381de654a6
+This is a **very** rough demo, just trying to see how all the pieces copuld potentially fit together. The code is very much a WIP.
 
-https://github.com/zkwebauthn/webauthn-halo2/blob/main/web-demo/src/pages/index.tsx
+Longer blog post about our journey can be found [here]()
 
-discussion for eth acct abstraction support
-https://ethresear.ch/t/passkey-based-account-abstraction-signer-for-smart-contract-wallets/15856
+## Install
 
-Starknet
-https://hackmd.io/@tarrence/rk3ksuqSo
+Install [Go](https://go.dev/learn/):
 
-https://app.joyid.dev/
+`brew install golang`
 
-https://github.com/sui-foundation/sips/pull/9#issuecomment-1694669233
+Install [Just](https://github.com/casey/just), the modern Make replacement:
 
-https://archive.nervos.org/blog/joyid-a-passwordless-web3-wallet-that-will-accelerate-the-mass-adoption-for-nervos
+`brew install just`
 
-https://medium.com/alembic-tech/why-biometric-wallets-are-the-future-of-web3-14ad1e3c88f0
+Install [SqlC](https://sqlc.dev/), 'cause we don't use no ORMs 'round here:
 
-https://hackmd.io/@tarrence/rk3ksuqSo
+`brew install sqlite3 sqlc`
 
-https://ethresear.ch/t/passkey-based-account-abstraction-signer-for-smart-contract-wallets/15856/20
+## Run
+
+`just build`
+
+`just create-db`
+
+`just serve`
+
+Navigate to http://localhost:8000/home and try it out!
+
+Or find it [on the web](https://gogo-webauthn.fly.dev/home)

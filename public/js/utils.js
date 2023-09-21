@@ -1,31 +1,16 @@
-import { ECDSASigValue } from "https://unpkg.com/@peculiar/asn1-ecc";
-import { AsnParser } from "https://unpkg.com/@peculiar/asn1-schema";
-
-// Helper functions from @simplewebauthn/server
-function shouldRemoveLeadingZero(bytes) {
-  return bytes[0] === 0x0 && (bytes[1] & (1 << 7)) !== 0;
+// Helper for fetching a POST
+export async function post(url, body) {
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  return await resp.json();
 }
 
-function fromUTF8String(utf8String) {
-  const encoder = new globalThis.TextEncoder();
-  return encoder.encode(utf8String);
-}
-
-async function digest(data, _algorithm) {
-  const hashed = await crypto.subtle.digest("SHA-256", data);
-
-  return new Uint8Array(hashed);
-}
-
-async function toHash(data, algorithm = -7) {
-  if (typeof data === "string") {
-    data = fromUTF8String(data);
-  }
-
-  return digest(data, algorithm);
-}
-
-function concat(arrays) {
+export function concat(arrays) {
   let pointer = 0;
   const totalLength = arrays.reduce((prev, curr) => prev + curr.length, 0);
 
@@ -39,63 +24,93 @@ function concat(arrays) {
   return toReturn;
 }
 
-async function verifyAuthentication(authJson) {
-  // 1. Creates the digest WebAuthn signs, see https://github.com/MasterKale/SimpleWebAuthn/blob/6f363aa53a69cf8c1ea69664924c1e9f8e19dc4e/packages/server/src/authentication/verifyAuthenticationResponse.ts#L189
-  const authDataBuffer = base64url.toBuffer(
-    authJson.response.authenticatorData
-  );
-  const clientDataHash = await toHash(
-    base64url.toBuffer(authJson.response.clientDataJSON)
-  );
-
-  const signatureBase = concat([authDataBuffer, clientDataHash]);
-
-  // 2. Retrieving the r and s values, see https://github.com/MasterKale/SimpleWebAuthn/blob/6f363aa53a69cf8c1ea69664924c1e9f8e19dc4e/packages/server/src/helpers/iso/isoCrypto/verifyEC2.ts#L103
-  const parsedSignature = AsnParser.parse(
-    base64url.toBuffer(authJson.response.signature),
-    ECDSASigValue
-  );
-  let rBytes = new Uint8Array(parsedSignature.r);
-  let sBytes = new Uint8Array(parsedSignature.s);
-
-  if (shouldRemoveLeadingZero(rBytes)) {
-    rBytes = rBytes.slice(1);
-  }
-
-  if (shouldRemoveLeadingZero(sBytes)) {
-    sBytes = sBytes.slice(1);
-  }
-
-  // 3. Recover the Ethereum address from the digest and the signature
-  const finalSignature = ethers.utils.concat([rBytes, sBytes]);
-  return ethers.utils.recoverAddress(signatureBase, finalSignature);
-}
-/**
- * String to Array Buffer
- * @param str string to convert
- */
-export const str2ab = (str) => {
+// String to Array Buffer
+export function str2ab(str) {
   const buf = new ArrayBuffer(str.length * 2); // 2 bytes for each char
   const bufView = new Uint16Array(buf);
   for (let i = 0, strLen = str.length; i < strLen; i++) {
     bufView[i] = str.charCodeAt(i);
   }
   return buf;
-};
+}
 
-/**
- * Buffer to Base64 url-encoded string
- * @param buffer buffer to convert
- */
-export const bufferToBase64URLString = (buffer) => {
+export async function sha256(msg) {
+  const msgBuffer = new TextEncoder("utf-8").encode(msg);
+  const hashBuffer = await window.crypto.subtle.digest("SHA-256", msgBuffer);
+  return bufferToHex(hashBuffer);
+}
+
+export function toHexString(byteArray) {
+  return Array.from(byteArray, function (byte) {
+    return ("0" + (byte & 0xff).toString(16)).slice(-2);
+  }).join("");
+}
+
+export function bufferToHex(buffer) {
+  const bytes = new Uint8Array(buffer);
+  return toHexString(bytes);
+}
+
+export function hexToBuffer(hexString) {
+  if (hexString.startsWith("0x")) {
+    hexString = hexString.slice(2);
+  }
+
+  const buffer = new ArrayBuffer(hexString.length / 2);
+  const view = new DataView(buffer);
+
+  // Iterate over the hex string, two characters at a time.
+  for (let i = 0; i < hexString.length; i += 2) {
+    // Parse the hex code into a byte.
+    const byte = parseInt(hexString.slice(i, i + 2), 16);
+    view.setUint8(i / 2, byte);
+  }
+
+  return buffer;
+}
+
+export function arrayToObject(arr) {
+  return arr.reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {});
+}
+
+export function bufferToBase64URLString(buffer) {
   const bytes = new Uint8Array(buffer);
   let str = "";
 
   for (const charCode of bytes) {
     str += String.fromCharCode(charCode);
   }
+  return stringToBase64URLString(str);
+}
 
+export function stringToBase64URLString(str) {
   const base64String = btoa(str);
-
   return base64String.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-};
+}
+
+export function base64URLStringToBuffer(base64URLString) {
+  // Convert from Base64URL to Base64
+  const base64 = base64URLString.replace(/-/g, "+").replace(/_/g, "/");
+  /**
+   * Pad with '=' until it's a multiple of four
+   * (4 - (85 % 4 = 1) = 3) % 4 = 3 padding
+   * (4 - (86 % 4 = 2) = 2) % 4 = 2 padding
+   * (4 - (87 % 4 = 3) = 1) % 4 = 1 padding
+   * (4 - (88 % 4 = 0) = 4) % 4 = 0 padding
+   */
+  const padLength = (4 - (base64.length % 4)) % 4;
+  const padded = base64.padEnd(base64.length + padLength, "=");
+
+  // Convert to a binary string
+  const binary = atob(padded);
+
+  // Convert binary string to buffer
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return buffer;
+}

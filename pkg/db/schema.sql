@@ -1,21 +1,44 @@
--- Dummy Subnet API for doing fake transactions. 
--- Only support one token type.
+-- Dummy blockchain API for doing fake transactions. 
 
 CREATE TABLE accounts (
-  id integer PRIMARY KEY,
-  address text NOT NULL,
-  balance integer NOT NULL
+  address text PRIMARY KEY,
+  balance integer NOT NULL CHECK(balance > 0)
 ) STRICT;
-
-CREATE UNIQUE INDEX accounts_address ON accounts(address);
 
 CREATE TABLE txs (
-  id text PRIMARY KEY,
-  payer text NOT NULL,
-  payee text NOT NULL,
-  amount integer NOT NULL,
-  tx_hash text NOT NULL,
-  sig text NOT NULL,
-  FOREIGN KEY(type_id) REFERENCES types(id)
+  height integer PRIMARY KEY,
+  payer text NOT NULL REFERENCES accounts(address),
+  payee text NOT NULL REFERENCES accounts(address),
+  amount integer NOT NULL
 ) STRICT;
 
+-- Deducting the amount from the payer's account
+CREATE TRIGGER update_payer_balance
+AFTER INSERT ON txs
+BEGIN
+  UPDATE accounts 
+  SET balance = balance - NEW.amount 
+  WHERE address = NEW.payer;
+END;
+
+-- Adding the amount to the payee's account
+CREATE TRIGGER update_payee_balance
+AFTER INSERT ON txs
+BEGIN
+  UPDATE accounts 
+  SET balance = balance + NEW.amount 
+  WHERE address = NEW.payee;
+END;
+
+-- Look ma, I'm immutable!
+CREATE TRIGGER txs_trigger_update
+BEFORE UPDATE ON txs
+BEGIN
+  SELECT RAISE(ABORT, 'Update operation is prohibited!');
+END;
+
+CREATE TRIGGER txs_trigger_delete
+BEFORE DELETE ON txs
+BEGIN
+  SELECT RAISE(ABORT, 'Delete operation is prohibited!');
+END;

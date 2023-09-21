@@ -25,7 +25,7 @@ func NewRouter(db string, webContent fs.FS) *echo.Echo {
 	}))
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Skipper:          middleware.DefaultSkipper,
-		Format:           `{"time":"${time_custom}","remote_ip":"${remote_ip}", "host":"${host}","method":"${method}","uri":"${uri}", "status":${status},"error":"${error}","bytes_out":${bytes_out}}` + "\n",
+		Format:           `{"time":"${time_custom}","method":"${method}","uri":"${uri}", "status":${status},"error":"${error}"` + "\n",
 		CustomTimeFormat: "2006-01-02 15:04:05",
 	}))
 
@@ -33,14 +33,12 @@ func NewRouter(db string, webContent fs.FS) *echo.Echo {
 	e.GET("/health", healthHandler.Alive)
 
 	apiHandler := NewApiHandler(db)
-	e.GET("/balance", apiHandler.GetBalance)
-	e.POST("/transfer", apiHandler.CreateTx)
-
-	verifierHandler := NewVerifierHandler()
-	e.POST("/verify", verifierHandler.Verify)
-
-
-	
+	e.GET("/accounts", apiHandler.GetAccounts)
+	e.GET("/account/:address", apiHandler.GetAccount)
+	e.POST("/account", apiHandler.CreateAccount)
+	e.POST("/update_account", apiHandler.UpdateAccount)
+	e.GET("/txs", apiHandler.GetTxs)
+	e.POST("/tx", apiHandler.CreateTx)
 
 	// Autocreate routes for any .html files in /public that do not start with "_"
 	e.Renderer = NewTemplateRenderer(webContent)
@@ -66,6 +64,7 @@ func NewRouter(db string, webContent fs.FS) *echo.Echo {
 	return e
 }
 
+// Validate incoming JSON body
 func bindAndValidate[T any](c echo.Context) (T, error) {
 	var body T
 	if err := (&echo.DefaultBinder{}).BindBody(c, &body); err != nil {

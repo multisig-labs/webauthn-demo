@@ -1,20 +1,35 @@
--- name: CreateAccount :one
+-- name: CreateAccount :exec
 INSERT INTO accounts (
   address, balance
 ) VALUES (
-  ?, 0
-) RETURNING id;
+  ?, ?
+);
+
+-- name: UpdateAccount :exec
+INSERT INTO accounts (address, balance)
+VALUES (?, ?)
+ON CONFLICT(address)
+DO UPDATE
+SET balance = balance + excluded.balance;
+
+-- name: GetAccounts :many
+SELECT address, balance
+FROM accounts
+ORDER BY address
+LIMIT 500;
 
 -- name: GetAccountBalance :one
 SELECT balance FROM accounts WHERE address = ?;
 
--- name: UpdateAccountBalance :exec
-UPDATE accounts SET balance = ? WHERE address = ?;
-
 -- name: CreateTx :exec
 INSERT INTO txs (
-  payer, payee, amount, tx_hash, sig
+  payer, payee, amount
 ) VALUES (
-  ?, ?, ?, ?, ?
+  ?, ?, ?
 );
 
+-- name: GetTxs :many
+SELECT height, payer, payee, amount
+FROM txs
+ORDER BY height desc
+LIMIT 500;

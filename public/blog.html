@@ -1,0 +1,429 @@
+{{template "layout" .}} {{define "content"}}
+<style>
+  .page-cover-image {
+    display: block;
+    object-fit: cover;
+    width: 100%;
+    max-height: 30vh;
+  }
+  .image {
+    border: none;
+    margin: 1.5em 0;
+    padding: 0;
+    border-radius: 0;
+    text-align: center;
+  }
+
+  figure {
+    margin: 1.25em 0;
+    page-break-inside: avoid;
+  }
+
+  figcaption {
+    opacity: 0.5;
+    font-size: 85%;
+    margin-top: 0.5em;
+  }
+</style>
+<div class="container">
+  <div class="row">
+    <div class="col-2"></div>
+    <div class="col-8">
+      <article id="d84b2192-bf1a-4e1a-b89e-98787738c7e7" class="page sans">
+        <header>
+          <img class="page-cover-image" src="img/blog_header.jpeg" style="object-position: center 50%" />
+          <h1 class="page-title">WebAuthn For Crypto</h1>
+          <p class="page-description"></p>
+        </header>
+        <div class="page-body">
+          <h1 id="59ad18be-5f3a-4124-adf3-c0259f97de84" class="">Passwords</h1>
+          <p id="2cb14da1-4b22-4d6e-8c81-e63baf8d69f3" class="">
+            Roman soldiers used <strong>watchwords</strong> to identify friend from foe. Prohibition-era speakeasys
+            required <strong>passwords</strong> to enter. Early multi-user computer systems also required a
+            <strong>password</strong> to <strong>log on</strong>, or <strong>sign in</strong>. But passwords are a bit
+            like <a href="https://winstonchurchill.org/resources/quotes/the-worst-form-of-government/">democracy</a>,
+            the worst form of identification, except for all the others. Passwords have a litany of well-documented
+            shortcomings and are extremely user-hostile. But in the Year of Our Lord 2023, things are about to change.
+          </p>
+          <h1 id="3f5ac5e1-4425-4032-8464-9a839dcdd64a" class="">Introducing Passkeys</h1>
+          <p id="982f8090-72d2-41c9-91e7-fd75ba380551" class="">
+            Upgrading the password experience is not a technology problem, we have developed better techniques ages ago.
+            But it is, as most things are, a political problem. Convincing thousands of people (developers,
+            cryptographers, government bureaucrats), to all get on the same page is quite the undertaking.
+          </p>
+          <p id="a82a786c-bf10-4890-8cd1-39ae191138c8" class="">
+            In the last few years, the Holy (Browser) Trinity has decided to bless us with
+            <a href="https://en.wikipedia.org/wiki/WebAuthn"><strong>Webauthn</strong></a
+            >, a set of in-browser cryptographic primitives that are easy to use, phish-resistent, and can be protected
+            with biometrics and secure enclaves. The legacy Web2 industry is busily building
+            <a href="https://www.passkeys.com/"><strong>Passkeys</strong></a> on top of these primitives, to make
+            signing in to web apps safer and more convenient.
+          </p>
+          <p id="fe8b3cc3-9a93-46dc-9a1d-00ee4b5fbdb8" class="">Modern browsers now have these two functions:</p>
+          <p id="74524327-0d2b-4df7-a2b2-6987748a51ba" class="">
+            <a href="https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/create"
+              ><code>navigator.credentials.create</code></a
+            >
+            and
+            <a href="https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get"
+              ><code>navigator.credentials.get</code></a
+            >
+          </p>
+          <p id="ea95e109-07e7-47eb-8565-a231ed990fa9" class="">
+            If you dig into the specs deep enough, you realize that at their core, these two functions enable you to
+            create a public/private keypair, and then sign a message with that keypair. Wait! That sounds suspiciously
+            close to how a crypto transaction works, eh? The excitement fades, however, when you learn that Webauthn
+            uses the
+            <code>secp256r1</code> elliptic curve, while the rest of crypto uses <code>secp256k1</code>. Bitcoin
+            originally used the <code>k1</code> curve, and Ethereum followed. But the Webauthn spec writers chose to use
+            a different curve, the <code>r1</code> curve, which has been anointed by NIST as the
+            <code>P256</code> curve, and has been dogged by rumors of “NSA tampering”. (Go down that rabbit hole
+            <a href="https://words.filippo.io/dispatches/seeds-bounty/">here</a>.)
+          </p>
+          <p id="9da2f3c3-1696-437a-bc65-3c99d52272ae" class="">
+            Unfortunately, this small detail puts a huge crimp in the works, and prevents crypto wallets from using
+            webauthn to directly sign crypto transactions. (I could go on a tangent about Big Tech and Big Govt
+            colluding to stomp on personal liberty, but let’s continue…)
+          </p>
+          <p id="1ca38570-f359-4855-9c62-2ff003d004f0" class="">
+            The push for Account Abstraction in the EVM-blockchain world seeks to address this shortcoming, by
+            implementing
+            <code>secp256r1</code> signature verification either in a precompile or directly in Solidity (ga$$$ yikes)
+            as part of the AA flow. But someone, somehow, still needs to sign a tx with a <code>secp256k1</code> key, so
+            there are off-chain actors in AA schemes to perform this critical function.
+          </p>
+          <h2 id="c31cfb0b-f443-4c2b-9bf2-ee85168a75f5" class="">Avalanche HyperSDK FTW</h2>
+          <p id="63654a4d-28a7-4ec0-8054-55de1a7fe025" class="">
+            In the Avalanche world, while the C-chain is necessarily “stuck” on the (legacy) EVM/<code>secp256k1</code>
+            elliptic curve, with the Subnet architecture we are free to explore new design spaces for blockchain systems
+            using fantastic accelerants like the <a href="https://github.com/ava-labs/hypersdk">HyperSDK</a>.
+          </p>
+          <p id="16137da3-7fb5-4aa7-a27d-aa5441d5e65a" class="">
+            So, our “hackathon” idea was, what if we could build a new blockchain that used <code>secp256r1</code> for
+            signature verification at the base level? By simply choosing a different elliptic curve, this would give
+            billions of people access to a hyper-secure hardware wallet, built-in to their standard web browser, and be
+            able to sign crypto transactions with biometric security.
+          </p>
+          <p id="93e1bd13-6e68-4c9d-9ec3-15c3bec4c17d" class="">
+            Could it be done? How hard would it be? How many rough edges are there? (Spoiler alert: a lot!)
+          </p>
+          <p id="e871158c-aaf1-4954-baba-6ada11187532" class="">
+            So buckle up, and let’s take a journey deep into the weeds…
+          </p>
+          <h2 id="087ecce9-5d63-461d-89b1-b550f2e8181c" class="">The Weeds</h2>
+          <p id="328af20f-7315-4062-aa72-f91d2c6d7f1f" class="">
+            Creating a new keypair using Javascript in a modern browser is easy:
+          </p>
+          <pre
+            id="bad391ba-7ffb-498a-b13e-35278ee56b40"
+            class="code code-wrap"
+          ><code>// Paste this code into your browser&#x27;s console to see it in action...
+const opts = {
+  publicKey: {
+    pubKeyCredParams: [{ type: &quot;public-key&quot;, alg: -7 }], // -7 means secp256r1 aka P256
+    challenge: Uint8Array.from(&quot;notnecessary&quot;, (c) =&gt; c.charCodeAt(0)),
+    authenticatorSelection: {
+      authenticatorAttachment: &quot;platform&quot;, // &quot;cross-platform&quot; for mobile QR code UI
+      requireResidentKey: true,
+      residentKey: &quot;required&quot;,
+      userVerification: &quot;required&quot;,
+    },
+    rp: {
+      // rp means RelyingParty -- your app/website
+      // if &#x27;id&#x27; is not specified, defaults to domain of whatever page you are on
+      // id: &quot;localhost&quot;,
+      name: &quot;YourAppName&quot;,
+    },
+    user: {
+      id: Uint8Array.from(&quot;u@x.com&quot;, (c) =&gt; c.charCodeAt(0)), // can be anything
+      name: &quot;u@x.com&quot;,
+      displayName: &quot;u@x.com&quot;,
+    },
+  },
+};
+var credential = await navigator.credentials.create(opts);
+console.log(credential);</code></pre>
+          <p id="70160dc1-ec7e-41e5-9021-11292462b14a" class="">
+            This will cause the browser to pop up a UI asking the user if they would like to create the new key.
+          </p>
+          <figure id="3f384ef2-b205-477b-86eb-3400c364b5f5" class="image">
+            <a href="img/create-passkey.jpg"><img src="img/create-passkey.jpg" /></a>
+          </figure>
+          <p id="18f5f2a4-f61d-4fe0-8340-029f4c068cea" class=""></p>
+          <p id="d7838ea4-2996-4e2b-8685-7b93b922a584" class="">
+            Once a key has been created, you can see it in Chrome by going to <code>chrome://settings/passkeys</code> or
+            on Safari iOS/MacOS <code>Settings-&gt;Passwords</code>.
+          </p>
+          <p id="f54509c3-cbf9-442f-a917-a3aa6977cbe7" class=""></p>
+          <p id="207a553c-e222-4a70-9096-1274812bca23" class="">
+            The <code>credential</code> variable will contain a JSON object with the standard Webauthn fields.
+          </p>
+          <pre id="41b1b1c9-1dd2-4640-aa46-af07e4f43d18" class="code code-wrap"><code>{
+  &quot;id&quot;: &quot;npI26b9am4rtzr7-Pza1PAhoAWdrBA3tOR37ZuM_t-E&quot;,
+  &quot;type&quot;: &quot;public-key&quot;,
+  &quot;authenticatorAttachment&quot;: &quot;platform&quot;,
+  &quot;response&quot;: AuthenticatorAttestationResponse,
+}</code></pre>
+          <p id="9e646e8f-995f-46ce-a5fd-a0335956e0c6" class="">
+            One trick we learned, was that in order to get the public key for later use, you can call
+            <code>credential.response.getPublicKey()</code> and then be sure to store the result somewhere for later
+            use. Also store the <code>id</code>. You will not be able to access this data again, which is a DX fail, but
+            more on that later. (In Passkeys-land, this data is sent to and stored on the server and linked to your user
+            login account.)
+          </p>
+          <h3 id="87889f52-511a-4105-9bd7-becfb713aee0" class="">Signing</h3>
+          <p id="01675d24-9350-4a7d-9cd5-59007e5de298" class="">
+            Now that we have a keypair, how would we sign a crypto transaction with it? The
+            <code>navigator.credentials.get</code> function will sign a “challenge”, which in Passkeys-land is just a
+            random set of bytes sent from the server. So instead of signing random bytes, we will sign a 32 byte hash of
+            a “transaction”, which can be anything we want since we are building our own blockchain. In this demo
+            project our toy transaction looks like:
+          </p>
+          <pre id="d72ce52b-754d-4fed-844b-47509b15e0b7" class="code code-wrap"><code>const tx = {
+  &quot;amount&quot;: &quot;42&quot;,
+  &quot;payer&quot;: &quot;15Y5TYLTX1fRuEb5aAPxcMZDnws1ScPeC2&quot;,
+  &quot;payee&quot;: &quot;16Zh4RBhnhxCwcqHmoYYQnBNnkRpcMbBDK&quot;
+}</code></pre>
+          <p id="5eafb051-19c1-40c6-8508-0e94249b849a" class="">
+            and our “challenge” would be <code>sha256(tx)</code>. So lets try signing that:
+          </p>
+          <pre
+            id="e17aef96-86e6-48e7-8bbd-8ba05ab1196f"
+            class="code code-wrap"
+          ><code>// credential.id is the id of the key we created earlier, but its in Base64URL and we (annoyingly) need it in a raw ArrayBuffer. 
+const base64 = credential.id.replace(/-/g, &quot;+&quot;).replace(/_/g, &quot;/&quot;);
+const binary = atob(base64);
+const buffer = new ArrayBuffer(binary.length);
+const bytes = new Uint8Array(buffer);
+for (let i = 0; i &lt; binary.length; i++) {
+  bytes[i] = binary.charCodeAt(i);
+};
+// Whew. Ok, lets continue...
+const msg = JSON.stringify(tx);
+const msgBuffer = new TextEncoder(&quot;utf-8&quot;).encode(msg);
+const challenge = await window.crypto.subtle.digest(&quot;SHA-256&quot;, msgBuffer);
+const publicKey = {
+  challenge: challenge,
+  userVerification: &quot;required&quot;,
+  allowCredentials: [{ type: &quot;public-key&quot;, id: buffer }],
+};
+
+const response = await navigator.credentials.get({ publicKey });</code></pre>
+          <figure id="8f568619-0605-4058-b7f7-9c63230c4a60" class="image">
+            <a href="img/sign.jpg"><img src="img/sign.jpg" /></a>
+          </figure>
+          <p id="d1859696-89ac-4caf-8793-6892901e952c" class="">Once the user signs, we get back a JSON object:</p>
+          <pre id="69bfe272-1ad9-4917-bc4b-2d10b64a4a5d" class="code code-wrap"><code>{  
+  &quot;clientDataJSON&quot;: &quot;eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiakd3RGNuSnFmMTdaaEM0aHc1Y1VrNnRMZWJnS2RJTkRNNW1kNDJTWC1mcyIsIm9yaWdpbiI6Imh0dHBzOi8vZ29nby13ZWJhdXRobi5mbHkuZGV2IiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ&quot;,  
+  &quot;authenticatorData&quot;: &quot;BqMx8BQZHBJxAPv8fS7-sGLx1GUDAljio7hrFPdDsgUFAAAAAA&quot;,
+  &quot;signature&quot;: &quot;MEQCID_Y89ej3YQu7h3Oe5cN2M4qtl3UsOLoVdGD3X0NAE7iAiACMpOoUzZ2xXJZjs4lJ8H3Y3vzIqlngRdiV_eQdO6YuA&quot;,
+  &quot;userHandle&quot;: &quot;TXkgV2FsbGV0&quot;
+}</code></pre>
+          <p id="15d25fcf-996e-4b8a-bf06-75feee2e1ed4" class="">
+            So it looks like we have a signature, woohoo! The next step is to use the signature, and the hash that was
+            signed, and the public key, and cryptographically verify it. Oh, and we want to do this in Go, since our
+            blockchain will be written in Go using HyperSDK. We will skip ahead past the part where we had to read a
+            bunch of specs and other people’s code on Github to figure out exactly how to do this. And no, ChatGPT was
+            decidedly unhelpful in this regard.
+          </p>
+          <p id="fb556670-f274-4f63-975b-a3bd48bf9099" class="">
+            It turns out, that the ArrayBuffer bytes that you get from the browser for the public key
+            (<code>credential.response.getPublicKey()</code>) is a
+            <a href="https://tools.ietf.org/html/rfc5280#section-4.1.2.7">SubjectPublicKeyInfo</a> which can be parsed
+            with
+            <code>crypto/x509.ParsePKIXPublicKey</code>
+          </p>
+          <p id="5baaf020-50ba-4b1b-b740-60df285b3804" class="">Our first attempt went like this:</p>
+          <pre id="63d1727e-4743-457b-9c02-d3166f068475" class="code code-wrap"><code>// msgHash is sha256(tx)
+pk, _ := x509.ParsePKIXPublicKey(publicKeyBytes)
+epk, _ := pk.(*ecdsa.PublicKey)
+ok := ecdsa.VerifyASN1(epk, msgHash, signature)</code></pre>
+          <p id="d1ee7446-a8f1-4281-ae6c-affeb12f800b" class="">
+            But, alas, this did not work. We thought the browser signed our “challenge” which was
+            <code>sha256(tx)</code>, but that’s not quite right. And when it comes to math, you gotta be
+            <em>exactly</em> right.
+          </p>
+          <p id="ab53e928-619f-4909-97f1-4989a67f9727" class="">
+            What the browser actually signs, is reproduced in this Go code:
+          </p>
+          <pre
+            id="2775ebbe-2252-4f56-8a94-dacc1ab74555"
+            class="code code-wrap"
+          ><code>// Construct the data that `navigator.credentials.get` used to sign
+func (w Webauthn) signedDataHash() [32]byte {
+	clientDataHash := sha256.Sum256([]byte(string(w.Response.ClientDataJSON)))
+	sigData := append(w.Response.AuthenticatorData, clientDataHash[:]...)
+	msgHash := sha256.Sum256(sigData)
+	return msgHash
+}</code></pre>
+          <blockquote id="03572d21-8110-420a-ab86-efd90d2bccfd" class="">
+            “Hey Johnny, why did it take you so long to write 3 lines of code?” 🤣
+          </blockquote>
+          <p id="21ae4397-6aff-43fd-a469-760fe22d928d" class="">
+            Wait, where is our <code>tx</code> data? Well, remember the <code>navigator.credentials.get</code> call that
+            returned a <code>response</code> object? That has a <code>clientDataJSON</code> field which is a Base64URL
+            encoded JSON that looks something like this:
+          </p>
+          <pre id="083f1183-8427-4486-b34c-e60b495aec93" class="code"><code>{
+  &quot;type&quot;:&quot;webauthn.get&quot;,
+  &quot;challenge&quot;:&quot;jGwDcnJqf17ZhC4hw5cUk6tLebgKdINDM5md42SX-fs&quot;,
+  &quot;origin&quot;:&quot;https://gogo-webauthn.fly.dev&quot;,
+  &quot;crossOrigin&quot;:false
+}</code></pre>
+          <p id="5a9c3e82-f305-4fad-bed4-c84d817b5ca0" class="">So, to tie it all together, our <code>tx</code> data</p>
+          <pre id="9d32d4c4-fa2e-4c8f-977e-ba78a91ff08c" class="code code-wrap"><code>{
+  &quot;amount&quot;: &quot;42&quot;,
+  &quot;payer&quot;: &quot;15Y5TYLTX1fRuEb5aAPxcMZDnws1ScPeC2&quot;,
+  &quot;payee&quot;: &quot;16Zh4RBhnhxCwcqHmoYYQnBNnkRpcMbBDK&quot;
+}</code></pre>
+          <p id="35fa25c9-0d9c-4c55-af11-700b8cc5f190" class="">
+            is <code>sha256</code>-hashed into a 32 byte “challenge”, and then the
+            <code>navigator.credentials.get</code> call Base64URL encodes it into the <code>challenge</code> field of
+            this obj:
+          </p>
+          <pre id="1c6aaf07-617e-42c0-bc31-0c4d8cc29235" class="code"><code>{
+  &quot;type&quot;:&quot;webauthn.get&quot;,
+  &quot;challenge&quot;:&quot;jGwDcnJqf17ZhC4hw5cUk6tLebgKdINDM5md42SX-fs&quot;,
+  &quot;origin&quot;:&quot;https://gogo-webauthn.fly.dev&quot;,
+  &quot;crossOrigin&quot;:false
+}</code></pre>
+          <p id="5cc20fe3-29b3-4cfb-b379-7510b154b219" class="">
+            which is then Base64URL encoded into the <code>clientDataJSON</code> field of the
+            <code>response</code> object:
+          </p>
+          <pre id="376ecb0b-411c-4980-8a20-fc8305245963" class="code code-wrap"><code>{
+  &quot;clientDataJSON&quot;: &quot;eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiakd3RGNuSnFmMTdaaEM0aHc1Y1VrNnRMZWJnS2RJTkRNNW1kNDJTWC1mcyIsIm9yaWdpbiI6Imh0dHBzOi8vZ29nby13ZWJhdXRobi5mbHkuZGV2IiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ&quot;,
+  &quot;authenticatorData&quot;: &quot;BqMx8BQZHBJxAPv8fS7-sGLx1GUDAljio7hrFPdDsgUFAAAAAA&quot;,
+  &quot;signature&quot;: &quot;MEQCID_Y89ej3YQu7h3Oe5cN2M4qtl3UsOLoVdGD3X0NAE7iAiACMpOoUzZ2xXJZjs4lJ8H3Y3vzIqlngRdiV_eQdO6YuA&quot;,
+  &quot;userHandle&quot;: &quot;TXkgV2FsbGV0&quot;
+}</code></pre>
+          <p id="66d061f0-30d7-4c4d-8d0f-755ca1af3f95" class="">
+            So now back to our <code>signedDataHash()</code> Go function above, it has to calculate some more
+            <code>sha256</code> hashes of various fields to finally get the hash that the browser signed. And with that,
+            we can now verify the signature against the hash and public key.
+          </p>
+          <pre id="eb40c319-caf7-40c7-82c9-a2c3f4ddf1fb" class="code code-wrap"><code>msgHash := signedDataHash()
+pk, _ := x509.ParsePKIXPublicKey(publicKeyBytes)
+epk, _ := pk.(*ecdsa.PublicKey)
+ok := ecdsa.VerifyASN1(epk, msgHash, signature)
+// 🎉</code></pre>
+          <p id="b101f05d-4fb3-42ad-bfc1-01dcb3e369af" class="">
+            This works, and we have verified the signature. Whew. This will now allow us to put all the pieces together
+            into a blockchain system that has these awesome features:
+          </p>
+          <ul id="077bec71-d229-4ad2-9215-7febc85c65f7" class="bulleted-list">
+            <li style="list-style-type: disc">Unparalleled new user on-boarding experience</li>
+          </ul>
+          <ul id="c9838eed-a7f9-4d4d-901e-d646431b2ff3" class="bulleted-list">
+            <li style="list-style-type: disc">Crypto wallet with no seed phrase or password to remember</li>
+          </ul>
+          <ul id="eb71b389-06c9-41da-ae4c-41d8a4abd1a1" class="bulleted-list">
+            <li style="list-style-type: disc">Private keys protected via biometrics and secure enclaves</li>
+          </ul>
+          <ul id="12a7dd0d-b814-446e-a913-85b1f0c726ce" class="bulleted-list">
+            <li style="list-style-type: disc">Can access wallet and sign txs from phone using any desktop browser</li>
+          </ul>
+          <h2 id="cef2d224-655f-4008-96bc-912a8d68b0b0" class="">TODOs</h2>
+          <p id="abe63108-f2b0-49fe-9eea-b6a1eb497ad2" class="">
+            While we have proved out the ability to do what we wanted, there are still many rough edges that developers
+            will need to file down in order to make this a great experience for users.
+          </p>
+          <p id="1f57c13f-49c9-430a-b758-a250f53c5a4f" class="">
+            Since Webauthn was developed mainly in service of the Passkeys use case, there are going to be impedance
+            mismatches with crypto. For example, when “signing” a transaction via biometrics, the Safari UI (which as a
+            dev you are unable to change) asks you to “sign in”
+          </p>
+          <figure id="2cb71ac2-8133-4bfd-a511-968a6aab8d4b" class="image">
+            <a href="img/IMG_8D4CFBF61022-1.jpeg"><img src="img/IMG_8D4CFBF61022-1.jpeg" /></a>
+          </figure>
+          <p id="0c140694-4ef8-445c-b150-31aeb4139739" class=""></p>
+          <p id="0ea780de-6322-473d-bdce-1d176bcfde7a" class=""></p>
+          <p id="4af78437-0a18-40b4-8be5-73370781842e" class="">
+            Another example is that when a key is created, the browser locks it to the current web site domain. The
+            browser then prevents the key from being used on any other web site. This is the phish-resistance feature in
+            action. But how will this work for a crypto wallet? A browser extension might work. But then we get into the
+            particulars of how each browser implements extensions – Chrome has a fixed domain it uses for an extension,
+            but Safari uses a dynamically generated domain.
+          </p>
+          <p id="2f098aad-7ca5-4ed3-80ba-eec7a4f8e8ff" class="">
+            Or maybe, a better approach is to actually generate a new key for each Dapp you use, that can then
+            <em>only</em> be used on that page, and thus take advantage of the anti-phish feature. But then how do you
+            “register” each new key with your blockchain account?
+          </p>
+          <h3 id="1fff1012-9aa2-4de4-9aaf-5980e2404012" class="">ecrecover</h3>
+          <p id="e1835488-1a6f-4f64-8e51-4bddd051ef99" class="">
+            When sending a tx to the EVM, we usually send the tx, and a signature, but we do not need to also send our
+            public key, because the EVM itself “recovers” our public key by using the <code>ecrecover</code> function.
+            What is this <code>ecrecover</code> thing? Well, we should all give thanks to the unsung heroes of Go-lang
+            crypto, the big brains at Decred. They are responsible for most of the core crypto Go code used in many
+            projects (Avalanche included). As far as I can tell, Owain G. Ainsworth committed the first version of the
+            function in
+            <a href="https://github.com/decred/dcrd/commit/ff3fac426d4d037505ea8208b79e93c2852451e0">2014</a> and this
+            is the current
+            <a
+              href="https://github.com/decred/dcrd/blob/dc41075594cfdef63e8a64340b4fc5651a56a604/dcrec/secp256k1/ecdsa/signature.go#L796"
+              >cannonical version</a
+            >.
+          </p>
+          <p id="89006ba8-fb41-4bf6-aad3-fa19874bde58" class="">
+            That function, however, was written to only work on the <code>secp256k1</code> curve, and we need that
+            function for the <code>secp256r1</code> curve. I tried asking ChatGPT to write it for me, and wow that was a
+            waste of time and tokens. And my Google-fu turned up nothing either. The Hyperledger folks have a native C
+            implementation that makes it seem like the same code can recover either curve
+            <a
+              href="https://github.com/Consensys/besu-native-ec/blob/ebd6f89804a7ab379c0f5a375c7c221181087db7/src/ec_key_recovery.c#L30"
+              >here</a
+            >
+            so I’m sure this is nothing that a quiet weekend and a case of White Monster can’t fix.
+          </p>
+          <p id="a90ce493-cbc3-4624-ab60-429db5482e8f" class="">
+            At any rate, for our demo project, this means we had to send along the public key as well, so that we could
+            verify it against the signature and hash. Which sucks, since now we have to <em>save</em> the public key
+            somewhere, because once it is created we cannot access it again, we can only tell the browser to sign things
+            with it.
+          </p>
+          <h3 id="77adc831-f92c-4c9e-bea6-c02942b09c70" class="">Secure Enclave on Apple Devices</h3>
+          <p id="1018527b-cdd4-4090-aa68-12a89bc9cb0a" class="">
+            The Secure Enclave is able to securely store secrets on your device, that cannot be exported in any way.
+            When you create a Webauthn key on Chrome on an Apple device, it will store the private key in this way. The
+            upside is the key is extremely secure. The downside is it cannot be backed up. If you lose the device, you
+            also lose the key (and potentially your crypto!). This can be addressed by building out an “account” system
+            on your blockchain that could have several private keys registered, or something like that. The
+            <a href="https://github.com/onflow/flow-go/blob/master/crypto/README.md">Flow</a> blockchain has an
+            interesting approach to accounts.
+          </p>
+          <p id="703e3caf-b247-4636-a219-7a258c05bc5a" class="">
+            But, it seems that Apple feels like this ability to lose a key is just bad UX for their users, so on Safari,
+            the private key is stored in the Secure Enclave, but <em>also</em> backed up into iCloud. The exact details
+            of how this is accomplished are theorized about
+            <a href="https://www.slashid.dev/blog/passkeys-deepdive/">here</a>. The upshot of this is that the exact
+            disposition of the Webauthn key you create is highly dependent on the browser and operating system you
+            created it on. The ability for the user to view and manage keys is also seriously lacking at this point.
+          </p>
+          <h1 id="988a0828-42c0-4518-9401-998d2aaceb0c" class="">Now What</h1>
+          <p id="07ecf7ec-0d51-48fb-95d7-85b0e7fbf774" class="">
+            Overall, it is going to be a UX challenge for builders as we try and fit the Webauthn square peg into the
+            Crypto round hole. But the end result will be overwhelmingly better than the current state-of-the-art, and
+            will pave the way for <strong>actually</strong> on-boarding the next billion users to crypto.
+          </p>
+          <p id="af9795a8-e806-4b20-9fb8-c3059c440e47" class="">
+            Financial sovereignty for every member of the human race is our goal.
+          </p>
+          <figure id="d47fb712-6281-4463-8b80-561f81f24441" class="image">
+            <a href="img/Soverign_Subnets.jpeg"><img src="img/Soverign_Subnets.jpeg" /></a>
+          </figure>
+          <p id="9de3829f-959c-4718-a091-0b239b455723" class="">
+            [Erik Voorhees](<a
+              href="https://twitter.com/permissionless/status/1702054516458156126?s=61&amp;t=H6pI2127ZCICTJHVB_7Uug"
+              >https://twitter.com/permissionless/status/1702054516458156126</a
+            >) says it best.
+          </p>
+          <p id="d09bf5a8-841d-4ee7-91b0-8a5974bc0d94" class=""></p>
+          <p id="f672a201-03e6-4fbb-a1ee-21eeb076db9c" class=""></p>
+        </div>
+      </article>
+      <div class="col-2"></div>
+    </div>
+  </div>
+  {{ end }}
+</div>

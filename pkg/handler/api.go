@@ -3,10 +3,12 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/multisig-labs/webauthn-demo/pkg/db"
+	"github.com/multisig-labs/webauthn-demo/pkg/webauthn"
 )
 
 type ApiHandler struct {
@@ -20,96 +22,100 @@ func NewApiHandler(dbFilename string) *ApiHandler {
 	return &ApiHandler{dbFilename: dbFilename, dbFile: dbFile, q: queries}
 }
 
-type GetBalanceBody struct {
-	Address string `json:"address" validate:"required"`
+// GET /account/:address
+func (h *ApiHandler) GetAccount(c echo.Context) error {
+	address := c.Param("address")
+	if address == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "address path parameter is required",
+		})
+	}
+
+	ctx := context.Background()
+	bal, err := h.q.GetAccountBalance(ctx, address)
+	if err != nil {
+		return toHttpError(err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]int64{"balance": bal})
 }
 
-type GetBalanceResponse struct {
-	Address string `json:"address"`
-	Balance int64  `json:"balance"`
+// GET /accounts
+func (h *ApiHandler) GetAccounts(c echo.Context) error {
+	ctx := context.Background()
+	bals, err := h.q.GetAccounts(ctx)
+	if err != nil {
+		return toHttpError(err)
+	}
+
+	return c.JSON(http.StatusOK, bals)
 }
 
-func (h *ApiHandler) GetBalance(c echo.Context) error {
-    address := c.QueryParam("address")
-    if address == "" {
-        return c.JSON(http.StatusBadRequest, map[string]string{
-            "error": "address query parameter is required",
-        })
-    }
-
-    ctx := context.Background()
-    bal, err := h.q.GetAccountBalance(ctx, address)
-    if err != nil {
-        return toHttpError(err)
-    }
-
-    r := GetBalanceResponse{
-        Address: address,
-        Balance: bal,
-    }
-
-    return c.JSON(http.StatusOK, r)
-}
-
-type CreateTxBody struct {
-	FromAddress string `json:"from_address" validate:"required"`
-	ToAddress   string `json:"to_address" validate:"required"`
-	Amount      int64  `json:"amount" validate:"required"`
-	TxHash 		string `json:"tx_hash" validate:"required"`
-	Sig 		string `json:"sig" validate:"required"`
-}
-
-type CreateTxResponse struct {
-	Tx *db.Tx `json:"tx"`
-}
-
-func (h *ApiHandler) CreateTx(c echo.Context) error {
-	body, err := bindAndValidate[CreateTxBody](c)
+// POST /account
+func (h *ApiHandler) CreateAccount(c echo.Context) error {
+	body, err := bindAndValidate[db.CreateAccountParams](c)
 	if err != nil {
 		return toHttpError(err)
 	}
 
 	ctx := context.Background()
-	args := db.CreateTxParams{
-		Payer:  body.FromAddress,
-		Payee:  body.ToAddress,
-		Amount: body.Amount,
-		TxHash: body.TxHash,
-		Sig:    body.Sig,
-	}
-	// Create transaction
-	err = h.q.CreateTx(ctx, args)
-	if err != nil {
-		return toHttpError(err)
-	}
-	// Get sender balance
-	senderBalance, err := h.q.GetAccountBalance(ctx, body.FromAddress)
-	if err != nil {
-		return toHttpError(err)
-	}
-	// Get receiver balance
-	receiverBalance, err := h.q.GetAccountBalance(ctx, body.ToAddress)
-	if err != nil {
-		return toHttpError(err)
-	}
-	// Update sender balance
-	senderParams := db.UpdateAccountBalanceParams{
-		Balance: senderBalance - body.Amount,
-		Address: body.FromAddress,
-	}
-	err = h.q.UpdateAccountBalance(ctx, senderParams)
-	if err != nil {
-		return toHttpError(err)
-	}
-	// Update receiver balance
-	receiverParams := db.UpdateAccountBalanceParams{
-		Balance: receiverBalance + body.Amount,
-		Address: body.ToAddress,
-	}
-	err = h.q.UpdateAccountBalance(ctx, receiverParams)
+	err = h.q.CreateAccount(ctx, body)
 	if err != nil {
 		return toHttpError(err)
 	}
 
-	return c.JSON(http.StatusOK, nil)
+	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+}
+
+// POST /update_account
+func (h *ApiHandler) UpdateAccount(c echo.Context) error {
+	body, err := bindAndValidate[db.UpdateAccountParams](c)
+	if err != nil {
+		return toHttpError(err)
+	}
+
+	ctx := context.Background()
+	err = h.q.UpdateAccount(ctx, body)
+	if err != nil {
+		return toHttpError(err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+}
+
+// GET /txs
+func (h *ApiHandler) GetTxs(c echo.Context) error {
+	ctx := context.Background()
+	txs, err := h.q.GetTxs(ctx)
+	if err != nil {
+		return toHttpError(err)
+	}
+
+	return c.JSON(http.StatusOK, txs)
+}
+
+// POST /txs
+func (h *ApiHandler) CreateTx(c echo.Context) error {
+	body, err := bindAndValidate[webauthn.Webauthn](c)
+	if err != nil {
+		return toHttpError(err)
+	}
+
+	if _, err := body.Verify(); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+	}
+
+	args := db.CreateTxParams{}
+	err = json.Unmarshal(body.SerializedTx, &args)
+	if err != nil {
+		return toHttpError(err)
+	}
+
+	ctx := context.Background()
+	err = h.q.CreateTx(ctx, args)
+	if err != nil {
+		return toHttpError(err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 }

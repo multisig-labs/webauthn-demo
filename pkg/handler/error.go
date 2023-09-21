@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"modernc.org/sqlite"
 )
 
 func toHttpError(err error) *echo.HTTPError {
@@ -15,10 +16,16 @@ func toHttpError(err error) *echo.HTTPError {
 			Message:  fmt.Sprintf("%v", e.Message),
 			Internal: e.Internal,
 		}
+	case *sqlite.Error:
+		return &echo.HTTPError{
+			Code:     http.StatusUnprocessableEntity,
+			Message:  fmt.Sprintf("%v", e),
+			Internal: err,
+		}
 	default:
 		return &echo.HTTPError{
 			Code:     http.StatusInternalServerError,
-			Message:  http.StatusText(http.StatusInternalServerError),
+			Message:  err.Error(),
 			Internal: err,
 		}
 	}
