@@ -29,6 +29,10 @@ func NewRouter(db string, webContent fs.FS) *echo.Echo {
 		CustomTimeFormat: "2006-01-02 15:04:05",
 	}))
 
+	e.GET("/", func(c echo.Context) error {
+		return c.Redirect(http.StatusMovedPermanently, "/home")
+	})
+
 	healthHandler := NewHealthHandler()
 	e.GET("/health", healthHandler.Alive)
 
