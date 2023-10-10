@@ -6,7 +6,7 @@ So, we tried fitting some of the existing Lego pieces together, to see how far w
 
 This is a **very** rough demo, just trying to see how all the pieces copuld potentially fit together. The code is very much a WIP.
 
-Longer blog post about our journey can be found [here]()
+Longer blog post about our journey can be found [here](https://gogo-webauthn.fly.dev/blog)
 
 ## Install
 
